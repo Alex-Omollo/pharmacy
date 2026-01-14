@@ -1,0 +1,92 @@
+.dashboard-container {
+  min-height: 100vh;
+  background-color: #F5F1E8;
+}
+
+.dashboard-nav {
+  background: linear-gradient(135deg, #1B5E4C 0%, #0D3D30 100%);
+  color: #FFFFFF;
+  padding: 20px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-nav h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.logout-btn {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+  border: 1px solid #FFFFFF;
+  padding: 8px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.logout-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.dashboard-content {
+  padding: 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.dashboard-content h2 {
+  color: #1B5E4C;
+  margin-bottom: 10px;
+}
+
+.dashboard-content p {
+  color: #0D3D30;
+  margin-bottom: 30px;
+}
+
+.placeholder-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.card {
+  background: #FFFFFF;
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  transition: transform 0.3s;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.card h3 {
+  color: #1B5E4C;
+  margin-bottom: 10px;
+  font-size: 24px;
+}
+
+.card p {
+  color: #0D3D30;
+  font-size: 14px;
+  margin: 0;
+}
