@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import MinValueValidator
+from django.utils import timezone
 from decimal import Decimal
 import uuid
 
@@ -270,6 +271,13 @@ class Product(models.Model):
             Child: 10 kg portion
             Sell 1 child (10kg) => parent stock goes from 10.0 → 9.8 bags
         """
+        # #region agent log
+        import json
+        try:
+            with open('/home/samarai/Dev/pharmacy/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({'id': f'log_{int(__import__("time").time())}', 'timestamp': int(__import__("time").time() * 1000), 'location': 'models.py:266', 'message': 'Product.update_parent_stock called', 'data': {'product_id': str(self.id) if hasattr(self, "id") and self.id else "unsaved", 'quantity_sold': str(quantity_sold), 'product_type': self.product_type}, 'sessionId': 'debug-session', 'runId': 'run1', 'hypothesisId': 'B'}) + '\n')
+        except: pass
+        # #endregion
         if self.product_type != 'child' or not self.parent_product:
             return Decimal('0')
 
@@ -293,10 +301,14 @@ class Product(models.Model):
 
         parent.stock_quantity = new_stock
         parent.save(update_fields=['stock_quantity'])
-
+        # #region agent log
+        import json
+        try:
+            with open('/home/samarai/Dev/pharmacy/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({'id': f'log_{int(__import__("time").time())}', 'timestamp': int(__import__("time").time() * 1000), 'location': 'models.py:298', 'message': 'Product.update_parent_stock returning', 'data': {'parent_units_consumed': str(parent_units_consumed), 'new_stock': str(new_stock)}, 'sessionId': 'debug-session', 'runId': 'run1', 'hypothesisId': 'B'}) + '\n')
+        except: pass
+        # #endregion
         return parent_units_consumed
-
-        return 0
     
     def can_sell(self, quantity):
         """
@@ -490,11 +502,25 @@ class Batch(models.Model):
     @property
     def is_expired(self):
         """Check if batch is expired"""
+        # #region agent log
+        import json
+        try:
+            with open('/home/samarai/Dev/pharmacy/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({'id': f'log_{int(__import__("time").time())}', 'timestamp': int(__import__("time").time() * 1000), 'location': 'models.py:492', 'message': 'Batch.is_expired accessed', 'data': {'batch_id': str(self.id) if hasattr(self, 'id') and self.id else 'unsaved', 'expiry_date': str(self.expiry_date)}, 'sessionId': 'debug-session', 'runId': 'run1', 'hypothesisId': 'A'}) + '\n')
+        except: pass
+        # #endregion
         return timezone.now().date() >= self.expiry_date
     
     @property
     def days_to_expiry(self):
         """Calculate days remaining until expiry"""
+        # #region agent log
+        import json
+        try:
+            with open('/home/samarai/Dev/pharmacy/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({'id': f'log_{int(__import__("time").time())}', 'timestamp': int(__import__("time").time() * 1000), 'location': 'models.py:497', 'message': 'Batch.days_to_expiry accessed', 'data': {'batch_id': str(self.id) if hasattr(self, "id") and self.id else "unsaved"}, 'sessionId': 'debug-session', 'runId': 'run1', 'hypothesisId': 'A'}) + '\n')
+        except: pass
+        # #endregion
         delta = self.expiry_date - timezone.now().date()
         return delta.days
     

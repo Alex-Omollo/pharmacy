@@ -4,15 +4,18 @@ import { useSelector } from 'react-redux';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
-import Products from './pages/Products';
+// import Products from './pages/Products';
 import Categories from './pages/Categories';
 import Sales from './pages/Sales';
 import SalesHistory from './pages/SalesHistory';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
-import UserDebug from './pages/UserDebug';
+// import UserDebug from './pages/UserDebug';
 import RoleBasedRoute from './components/RoleBasedRoute';
 import Medicines from './pages/Medicines';
+import StockReceiving from './pages/StockReceiving';
+import ExpiryManagement from './pages/ExpiryManagement';
+import Batches from './pages/Batches';
 
 
 // Protected Route Component
@@ -78,6 +81,30 @@ function App() {
               <Medicines />
             </RoleBasedRoute>
           } 
+        />
+        <Route
+          path="/stock-receiving"
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager']}>
+              <StockReceiving />
+            </RoleBasedRoute>
+          }
+        />
+        <Route
+          path="/expiry-management"
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager']}>
+              <ExpiryManagement/>
+            </RoleBasedRoute>
+          }
+        />
+        <Route
+          path="/batches"
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager']}>
+              <Batches/>
+            </RoleBasedRoute>
+          }
         />
         <Route 
           path="/categories" 
