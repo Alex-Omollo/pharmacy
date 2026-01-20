@@ -12,6 +12,12 @@ from .views import (
     ChangePasswordView,
     RoleListView,
     logout_view,
+    # Store views
+    StoreListCreateView,
+    StoreDetailView,
+    get_default_store,
+    set_default_store,
+    get_user_store,
     # Product views
     CategoryListCreateView,
     CategoryDetailView,
@@ -112,6 +118,13 @@ urlpatterns = [
     
     # Roles
     path('roles/', RoleListView.as_view(), name='role_list'),
+    
+    # Stores
+    path('stores/', StoreListCreateView.as_view(), name='store_list_create'),
+    path('stores/<int:pk>/', StoreDetailView.as_view(), name='store_detail'),
+    path('stores/default/', get_default_store, name='get_default_store'),
+    path('stores/<int:pk>/set-default/', set_default_store, name='set_default_store'),
+    path('stores/my-store/', get_user_store, name='get_user_store'),
     
     # Categories
     path('categories/', CategoryListCreateView.as_view(), name='category_list_create'),

@@ -17,11 +17,11 @@ from .models import (
     Sale, SaleItem, Payment, Supplier,
     StockMovement, PurchaseOrder, PurchaseOrderItem,
     StockAlert, Medicine, Batch, StockReceiving, MedicineStockMovement,
-    PharmacySale, PharmacySaleItem, ControlledDrugRegister
+    PharmacySale, PharmacySaleItem, ControlledDrugRegister, Store
 )
 from .serializers import (
     UserSerializer, UserCreateSerializer, UserUpdateSerializer,
-    ChangePasswordSerializer, RoleSerializer,
+    ChangePasswordSerializer, RoleSerializer, StoreSerializer, StoreCreateSerializer,
     ProductListSerializer, ProductDetailSerializer,
     ProductCreateUpdateSerializer, CategorySerializer,
     BulkProductUploadSerializer, SaleListSerializer,
@@ -145,6 +145,82 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class CustomTokenObtainPairView(TokenObtainPairView):
     """Custom login view with user data"""
     serializer_class = CustomTokenObtainPairSerializer
+
+
+# ===== STORE MANAGEMENT VIEWS =====
+class StoreListCreateView(generics.ListCreateAPIView):
+    """List all stores or create new one (Admin only)"""
+    queryset = Store.objects.all()
+    permission_classes = [IsAdmin]
+    
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return StoreCreateSerializer
+        return StoreSerializer
+    
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class StoreDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update or delete a store (Admin only)"""
+    queryset = Store.objects.all()
+    serializer_class = StoreSerializer
+    permission_classes = [IsAdmin]
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_default_store(request):
+    """Get the default store"""
+    try:
+        default_store = Store.get_default_store()
+        serializer = StoreSerializer(default_store)
+        return Response(serializer.data)
+    except Exception as e:
+        return Response(
+            {'error': 'Failed to get default store'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def set_default_store(request, pk):
+    """Set a store as the default store"""
+    try:
+        store = Store.objects.get(pk=pk)
+        store.is_default = True
+        store.save()
+        
+        return Response({
+            'message': f'Store "{store.name}" set as default',
+            'store': StoreSerializer(store).data
+        })
+    except Store.DoesNotExist:
+        return Response(
+            {'error': 'Store not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_user_store(request):
+    """Get the current user's store"""
+    user = request.user
+    
+    if user.store:
+        serializer = StoreSerializer(user.store)
+        return Response(serializer.data)
+    else:
+        # If user has no store, assign them to default store
+        default_store = Store.get_default_store()
+        user.store = default_store
+        user.save()
+        
+        serializer = StoreSerializer(default_store)
+        return Response(serializer.data)
 
 
 class RegisterView(generics.CreateAPIView):

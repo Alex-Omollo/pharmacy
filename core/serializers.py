@@ -8,7 +8,7 @@ from .models import (
     PurchaseOrder, PurchaseOrderItem,
     Medicine, Batch, StockReceiving, StockReceivingItem,
     MedicineStockMovement, PharmacySale, PharmacySaleItem,
-    ControlledDrugRegister
+    ControlledDrugRegister, Store
 )
 
 
@@ -16,6 +16,37 @@ class RoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Role
         fields = ['id', 'name', 'description']
+
+
+class StoreSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    
+    class Meta:
+        model = Store
+        fields = [
+            'id', 'name', 'description', 'is_default', 'is_active',
+            'address', 'phone', 'email', 'created_by', 'created_by_name',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
+
+
+class StoreCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Store
+        fields = [
+            'name', 'description', 'is_default', 'is_active',
+            'address', 'phone', 'email'
+        ]
+    
+    def validate(self, attrs):
+        # If setting as default, ensure user is admin
+        if attrs.get('is_default', False):
+            if not self.context['request'].user.is_admin:
+                raise serializers.ValidationError(
+                    "Only admins can set a store as default"
+                )
+        return attrs
 
 
 class UserSerializer(serializers.ModelSerializer):
