@@ -16,12 +16,17 @@ import Medicines from './pages/Medicines';
 import StockReceiving from './pages/StockReceiving';
 import ExpiryManagement from './pages/ExpiryManagement';
 import Batches from './pages/Batches';
-
+import StoreSetup from './pages/StoreSetup';
+import SetupGuard from './components/SetupGuard';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated } = useSelector((state) => state.auth);
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  return isAuthenticated ? (
+    <SetupGuard>{children}</SetupGuard>
+  ) : (
+    <Navigate to="/login" />
+  );
 };
 
 function App() {
@@ -33,6 +38,12 @@ function App() {
         <Route 
           path="/login" 
           element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login />} 
+        />
+        <Route
+          path="/setup"
+          element={
+            isAuthenticated ? <StoreSetup /> : <Navigate to="/login" />
+          }
         />
         <Route 
           path="/dashboard" 

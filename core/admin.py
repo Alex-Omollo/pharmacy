@@ -50,14 +50,19 @@ class UserAdmin(admin.ModelAdmin):
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ['name', 'store', 'is_active', 'created_at']
     list_filter = ['is_active', 'created_at', 'store']
-    search_fields = ['name', 'description']
-    readonly_fields = ['created_at', 'updated_at']
+    # search_fields = ['name', 'description']
+    # readonly_fields = ['created_at', 'updated_at']
     
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         if request.user.is_superuser:
             return qs
         return qs.filter(store=request.user.store)
+    
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj,store = request.user.store or Store.get_default_store()
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(Product)

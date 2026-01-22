@@ -35,7 +35,7 @@ from .serializers import (
     StockReceivingListSerializer, StockReceivingDetailSerializer,
     StockReceivingCreateSerializer, PharmacySaleListSerializer,
     PharmacySaleDetailSerializer, PharmacySaleCreateSerializer,
-    MedicineStockMovementSerializer
+    MedicineStockMovementSerializer, CompleteSetupSerializer
 )
 from .permissions import IsAdmin, IsManager, IsCashier
 import io
@@ -146,12 +146,70 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     """Custom login view with user data"""
     serializer_class = CustomTokenObtainPairSerializer
 
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def check_setup_status(request):
+    """Check if initial setup is required"""
+    user = request.user
+    
+    setup_required = Store.setup_required()
+    user_completed_setup = user.has_completed_setup
+    
+    return Response({
+        'setup_required': setup_required,
+        'user_completed_setup': user_completed_setup,
+        'is_admin': user.is_admin,
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'role': user.role.name if user.role else None,
+        }
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def complete_initial_setup(request):
+    """Complete initial store setup (Admin only)"""
+    
+    # Check if setup is already done
+    if not Store.setup_required():
+        return Response(
+            {'error': 'Setup has already been completed'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    serializer = CompleteSetupSerializer(
+        data=request.data,
+        context={'request': request}
+    )
+    
+    if serializer.is_valid():
+        result = serializer.save()
+        
+        return Response({
+            'message': 'Setup completed successfully!',
+            'store': StoreSerializer(result['store']).data,
+            'user': UserSerializer(result['user']).data
+        }, status=status.HTTP_201_CREATED)
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # ===== STORE MANAGEMENT VIEWS =====
 class StoreListCreateView(generics.ListCreateAPIView):
     """List all stores or create new one (Admin only)"""
-    queryset = Store.objects.all()
+    # queryset = Store.objects.all()
     permission_classes = [IsAdmin]
+    
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_superuser:
+            return Store.objects.all()
+        
+        return Store.objects.filter(is_active=True)
     
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -167,6 +225,22 @@ class StoreDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Store.objects.all()
     serializer_class = StoreSerializer
     permission_classes = [IsAdmin]
+    
+    def destroy(self, request, *args, **kwargs):
+        """Prevent deletion of default store"""
+        store = self.get_object()
+        
+        if store.is_default:
+            return Response(
+                {'error': 'Cannot delete the default store'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if store.users.exists():
+            return Response(
+                {'error': f'Cannot delete store with {store.users.count()} associated users. Please reassign users first'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        return super().destroy(request, *args, **kwargs)
 
 
 @api_view(['GET'])
@@ -216,11 +290,19 @@ def get_user_store(request):
     else:
         # If user has no store, assign them to default store
         default_store = Store.get_default_store()
-        user.store = default_store
-        user.save()
+        if default_store:
+            serializer = StoreSerializer(default_store)
+            return Response(serializer.data)
+        else:
+            return Response(
+                {'error': 'No store assigned. Please complete setup.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        # user.store = default_store
+        # user.save()
         
-        serializer = StoreSerializer(default_store)
-        return Response(serializer.data)
+        # serializer = StoreSerializer(default_store)
+        # return Response(serializer.data)
 
 
 class RegisterView(generics.CreateAPIView):
@@ -905,11 +987,26 @@ class SupplierListCreateView(generics.ListCreateAPIView):
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'contact_person', 'email']
     ordering = ['name']
+    
+    def get_queryset(self):
+        """Filter suppliers by user's store"""
+        if self.request.user.is_superuser:
+            return Supplier.objects.all()
+        return Supplier.objects.filter(store=self.request.user.store)
+        
+        
     def perform_create(self, serializer):
         user = self.request.user
-        if not hasattr(user, "store") or user.store is None:
-            raise ValidationError("User is not assigned to a store")
-        serializer.save(store=user.store)
+        store = user.store if user.store else Store.get_default_store()
+        
+        if not store:
+            raise ValidationError('No store available. Please contact administrator')
+        
+        serializer.save(store=store)
+        
+        # if not hasattr(user, "store") or user.store is None:
+        #     raise ValidationError("User is not assigned to a store")
+        # serializer.save(store=user.store)
 
 
 

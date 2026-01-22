@@ -20,6 +20,8 @@ class Store(models.Model):
     address = models.TextField(blank=True)
     phone = models.CharField(blank=True, max_length=20)
     email = models.EmailField(blank=True)
+    business_registration = models.CharField(max_length=100, blank=True, help_text='Business registration number')
+    tax_id = models.CharField(max_length=100, blank=True, help_text='Tax ID/VAT number')
     created_by = models.ForeignKey(
         'User', 
         on_delete=models.SET_NULL, 
@@ -28,6 +30,14 @@ class Store(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'stores'
+        ordering = ['-is_default', 'name']
+        verbose_name = 'Store'
+        verbose_name_plural = 'Stores'
+        
+        
     def __str__(self):
         return f"{self.name}{' (default)' if self.is_default else ''}"
 
@@ -38,21 +48,45 @@ class Store(models.Model):
     
     @classmethod
     def get_default_store(cls):
-        """Get the default store, create one if none exists"""
-        default_store = cls.objects.filter(is_default=True).first()
-        if not default_store:
-            default_store = cls.objects.create(
-                name='Default Store',
-                description='Default store for the system',
-                is_default=True,
-                is_active=True,
-                created_by=User.objects.get(username='admin')
-            )
-        return default_store
+        """Get the default store"""
+        return cls.objects.filter(is_default=True, is_active=True).first()
+        
+        # """Get the default store, create one if none exists"""
+        # default_store = cls.objects.filter(is_default=True).first()
+        # if not default_store:
+            
+        #     admin_user = User.objects.filter(role__name='admin').first()
+            
+        #     default_store = cls.objects.create(
+        #         name='Default Store',
+        #         description='Default store for the system',
+        #         is_default=True,
+        #         is_active=True,
+        #         created_by=User.objects.get(username='admin')
+        #     )
+        # return default_store
+    
+    @classmethod
+    def setup_required(cls):
+        """Check if initial store setup is required"""
+        return not cls.objects.exists()
+    
+    @classmethod
+    def create_initial_store(cls, name, admin_user, **kwargs):
+        """Create the first store during setup"""
+        return cls.objects.create(
+            name=name,
+            is_default=True,
+            is_active=True,
+            created_by=admin_user,
+            **kwargs
+        )
 
-        class Meta:
-            db_table = 'stores'
-            ordering = ['-is_default', 'name']
+class StoreFilteredManager(models.Manager):
+    """Manager that filters by store"""
+    
+    def for_store(self, store):
+        return self.filter(store=store)
     
     
 class Role(models.Model):
@@ -97,6 +131,10 @@ class User(AbstractUser):
     phone = models.CharField(max_length=15, blank=True)
     address = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
+    has_completed_setup = models.BooleanField(
+        default=False,
+        help_text='Whether the user has completed initial setup'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -126,7 +164,8 @@ class Category(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    store = models.ForeignKey(Store, on_delete=models.CASCADE)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='categories')
+    objects = StoreFilteredManager()
     
     def __str__(self):
         return self.name
@@ -135,6 +174,7 @@ class Category(models.Model):
         db_table = 'categories'
         verbose_name_plural = 'Categories'
         ordering = ['name']
+        unique_together = [['name', 'store']]
 
 
 class Product(models.Model):

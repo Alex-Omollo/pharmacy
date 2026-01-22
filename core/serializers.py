@@ -36,7 +36,7 @@ class StoreCreateSerializer(serializers.ModelSerializer):
         model = Store
         fields = [
             'name', 'description', 'is_default', 'is_active',
-            'address', 'phone', 'email'
+            'address', 'phone', 'email', 'business_registration', 'tax_id'
         ]
     
     def validate(self, attrs):
@@ -48,6 +48,64 @@ class StoreCreateSerializer(serializers.ModelSerializer):
                 )
         return attrs
 
+class StoreSetupSerializer(serializers.Serializer):
+    """Serializer for initial store setup"""
+    name = serializers.CharField(max_length=100, required=True)
+    description = serializers.CharField(required=False, allow_blank=True)
+    address = serializers.CharField(required=False, allow_blank=True)
+    phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    business_registration = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    tax_id = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    
+    def validate_name(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Store name cannot be empty")
+        return value.strip()
+    
+class CompleteSetupSerializer(serializers.Serializer):
+    """Serializer for completing initial setup"""
+    store = StoreSetupSerializer(required=True)
+    
+    # Optional: Admin can update their profile during setup
+    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    phone = serializers.CharField(max_length=15, required=False, allow_blank=True)
+    
+    def create(self, validated_data):
+        from django.db import transaction
+        
+        user = self.context['request'].user
+        store_data = validated_data.pop('store')
+        
+        with transaction.atomic():
+            # Create the store
+            store = Store.create_initial_store(
+                name=store_data['name'],
+                admin_user=user,
+                description=store_data.get('description', ''),
+                address=store_data.get('address', ''),
+                phone=store_data.get('phone', ''),
+                email=store_data.get('email', ''),
+                business_registration=store_data.get('business_registration', ''),
+                tax_id=store_data.get('tax_id', '')
+            )
+            
+            # Assign store to admin user
+            user.store = store
+            user.has_completed_setup = True
+            
+            # Update admin profile if provided
+            if validated_data.get('first_name'):
+                user.first_name = validated_data['first_name']
+            if validated_data.get('last_name'):
+                user.last_name = validated_data['last_name']
+            if validated_data.get('phone'):
+                user.phone = validated_data['phone']
+            
+            user.save()
+        
+        return {'store': store, 'user': user}
 
 class UserSerializer(serializers.ModelSerializer):
     role_name = serializers.CharField(source='role.name', read_only=True)

@@ -101,6 +101,10 @@ from .views import (
     pharmacy_dashboard_stats,
     controlled_drugs_report,
     stock_movement_report,
+    
+    ##
+    check_setup_status,
+    complete_initial_setup,
 )
 
 urlpatterns = [
@@ -119,6 +123,9 @@ urlpatterns = [
     # Roles
     path('roles/', RoleListView.as_view(), name='role_list'),
     
+    # Setup endpoints
+    path('setup/status/', check_setup_status, name='setup_status'),
+    path('setup/complete/', complete_initial_setup, name='complete_setup'), 
     # Stores
     path('stores/', StoreListCreateView.as_view(), name='store_list_create'),
     path('stores/<int:pk>/', StoreDetailView.as_view(), name='store_detail'),
