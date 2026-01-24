@@ -1,7 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import MinValueValidator
-from django.utils import timezone
+from django.utils.timezone import now
 from decimal import Decimal
 import uuid
 
@@ -432,7 +432,7 @@ class Medicine(models.Model):
     ]
     
     # Basic Info
-    name = models.CharField(max_length=200, help_text="Brand or trade name")
+    b_name = models.CharField(max_length=200, help_text="Brand or trade name")
     generic_name = models.CharField(max_length=200, help_text="Generic/scientific name")
     medicine_type = models.CharField(max_length=20, choices=MEDICINE_TYPE_CHOICES, default='generic')
     
@@ -451,12 +451,12 @@ class Medicine(models.Model):
     description = models.TextField(blank=True)
     
     # Pricing (default - can be overridden per batch)
-    cost_price = models.DecimalField(
+    buying_price = models.DecimalField(
         max_digits=10, 
         decimal_places=2,
         validators=[MinValueValidator(Decimal('0.01'))]
     )
-    price = models.DecimalField(
+    selling_price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         validators=[MinValueValidator(Decimal('0.01'))]
@@ -480,14 +480,15 @@ class Medicine(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"{self.name} ({self.generic_name}) - {self.strength}"
+        return f"{self.b_name} ({self.generic_name}) - {self.strength}"
     
     @property
     def total_stock(self):
         """Total stock across all non-expired batches"""
+        today = now().date()
         return self.batches.filter(
-            is_expired=False,
-            quantity__gt=0
+            expiry_date__gt=today,
+            is_blocked=False
         ).aggregate(total=models.Sum('quantity'))['total'] or 0
     
     @property
@@ -507,9 +508,9 @@ class Medicine(models.Model):
     
     class Meta:
         db_table = 'medicines'
-        ordering = ['name']
+        ordering = ['b_name']
         indexes = [
-            models.Index(fields=['name']),
+            models.Index(fields=['b_name']),
             models.Index(fields=['generic_name']),
             models.Index(fields=['sku']),
             models.Index(fields=['barcode']),

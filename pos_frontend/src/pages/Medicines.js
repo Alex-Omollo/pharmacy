@@ -18,7 +18,7 @@ const Medicines = () => {
   const [filterExpiring, setFilterExpiring] = useState(false);
   
   const [formData, setFormData] = useState({
-    brand_name: '',
+    b_name: '',
     generic_name: '',
     sku: '',
     category: '',
@@ -74,7 +74,7 @@ const Medicines = () => {
 
     try {
       if (editMode) {
-        await api.patch(`/medicines/${selectedMedicine.id}/`, formData);
+        await api.patch(`/api/medicines/${selectedMedicine.id}/`, formData);
       } else {
         await api.post('/medicines/create/', formData);
       }
@@ -90,7 +90,7 @@ const Medicines = () => {
   const handleEdit = (medicine) => {
     setSelectedMedicine(medicine);
     setFormData({
-      brand_name: medicine.brand_name || '',
+      b_name: medicine.b_name || '',
       generic_name: medicine.generic_name || '',
       sku: medicine.sku || '',
       category: medicine.category || '',
@@ -113,7 +113,7 @@ const Medicines = () => {
     const action = medicine.is_active ? 'deactivate' : 'reactivate';
     const actionText = medicine.is_active ? 'Deactivate' : 'Reactivate';
     
-    if (window.confirm(`${actionText} "${medicine.brand_name}"?`)) {
+    if (window.confirm(`${actionText} "${medicine.b_name}"?`)) {
       try {
         const response = await api.post(`/medicines/${medicine.id}/${action}/`);
         alert(response.data.message);
@@ -126,7 +126,7 @@ const Medicines = () => {
 
   const resetForm = () => {
     setFormData({
-      brand_name: '',
+      b_name: '',
       generic_name: '',
       sku: '',
       category: '',
@@ -231,7 +231,7 @@ const Medicines = () => {
             </div>
             
             <div className="medicine-info">
-              <h3>{medicine.brand_name}</h3>
+              <h3>{medicine.b_name}</h3>
               <p className="generic-name">{medicine.generic_name}</p>
               <p className="medicine-sku">SKU: {medicine.sku}</p>
               <p className="medicine-strength">{medicine.strength} • {medicine.dosage_form}</p>
@@ -300,8 +300,8 @@ const Medicines = () => {
                   <label>Brand Name *</label>
                   <input
                     type="text"
-                    name="brand_name"
-                    value={formData.brand_name}
+                    name="b_name"
+                    value={formData.b_name}
                     onChange={handleChange}
                     required
                     placeholder="e.g., Panadol"
@@ -322,13 +322,13 @@ const Medicines = () => {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>SKU {formData.brand_name === '' ? '*' : '(optional)'}</label>
+                  <label>SKU {formData.b_name === '' ? '*' : '(optional)'}</label>
                   <input
                     type="text"
                     name="sku"
                     value={formData.sku}
                     onChange={handleChange}
-                    required={formData.brand_name === ''}
+                    required={formData.b_name === ''}
                     readOnly={editMode}
                     placeholder="MED001"
                   />
@@ -495,12 +495,12 @@ const Medicines = () => {
         <div className="modal-overlay" onClick={() => setShowBatchModal(false)}>
           <div className="modal modal-xl" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>📦 Batches - {selectedMedicine.brand_name}</h3>
+              <h3>📦 Batches - {selectedMedicine.b_name}</h3>
               <button onClick={() => setShowBatchModal(false)} className="close-btn">×</button>
             </div>
 
             <div className="medicine-info-box">
-              <h4>{selectedMedicine.brand_name} ({selectedMedicine.generic_name})</h4>
+              <h4>{selectedMedicine.b_name} ({selectedMedicine.generic_name})</h4>
               <p>{selectedMedicine.strength} • {selectedMedicine.dosage_form}</p>
               <p>Total Stock: <strong>{selectedMedicine.total_stock || 0}</strong></p>
             </div>

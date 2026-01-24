@@ -2139,9 +2139,9 @@ class MedicineListView(generics.ListAPIView):
     serializer_class = MedicineListSerializer
     permission_classes = [IsCashier]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['name', 'generic_name', 'sku', 'barcode', 'manufacturer']
-    ordering_fields = ['name', 'generic_name', 'price', 'cost_price', 'created_at']
-    ordering = ['name']
+    search_fields = ['b_name', 'generic_name', 'sku', 'barcode', 'manufacturer']
+    ordering_fields = ['b_name', 'generic_name', 'price', 'cost_price', 'created_at']
+    ordering = ['b_name']
     
     def get_queryset(self):
         queryset = Medicine.objects.select_related('category').all()
@@ -2179,7 +2179,7 @@ class MedicineCreateView(generics.CreateAPIView):
     def perform_create(self, serializer):
         from .utils import generate_sku, generate_barcode_number
         
-        name = serializer.validated_data.get('name', 'MEDICINE')
+        name = serializer.validated_data.get('b_name', 'MEDICINE')
         sku = serializer.validated_data.get('sku')
         if not sku:
             sku = generate_sku(name)

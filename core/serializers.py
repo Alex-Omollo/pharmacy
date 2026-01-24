@@ -902,10 +902,9 @@ class  MedicineListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Medicine
         fields = [
-            'id', 'name', 'generic_name', 'sku', 'barcode',
+            'id', 'b_name', 'generic_name', 'sku', 'barcode',
             'category', 'category_name', 'schedule', 'dosage_form',
-            'strength', 'manufacturer', 'default_selling_price',
-            'total_stock', 'is_low_stock', 'active_batches_count',
+            'strength', 'manufacturer', 'selling_price','buying_price',             'total_stock', 'is_low_stock', 'active_batches_count',
             'is_active', 'created_at'
         ]
     
@@ -925,9 +924,9 @@ class MedicineDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Medicine
         fields = [
-            'id', 'name', 'generic_name', 'medicine_type', 'sku', 'barcode',
+            'id', 'b_name', 'generic_name', 'medicine_type', 'sku', 'barcode',
             'category', 'category_name', 'schedule', 'dosage_form', 'strength',
-            'manufacturer', 'description', 'default_selling_price',
+            'manufacturer', 'description', 'selling_price', 'buying_price',
             'storage_instructions', 'contraindications', 'side_effects',
             'min_stock_level', 'reorder_level', 'total_stock', 'is_low_stock',
             'requires_prescription', 'is_controlled_drug', 'is_active',
@@ -948,9 +947,9 @@ class MedicineCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Medicine
         fields = [
-            'name', 'generic_name', 'medicine_type', 'sku', 'barcode',
+            'b_name', 'generic_name', 'medicine_type', 'sku', 'barcode',
             'category', 'schedule', 'dosage_form', 'strength', 'manufacturer',
-            'description', 'price', 'cost_price', 'storage_instructions',
+            'description', 'buying_price', 'selling_price', 'storage_instructions',
             'contraindications', 'side_effects', 'min_stock_level',
             'reorder_level', 'is_active'
         ]
