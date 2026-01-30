@@ -422,13 +422,28 @@ def logout_view(request):
 ##
 class CategoryListCreateView(generics.ListCreateAPIView):
     """List all categories or create new one (Admin/Manager can create)"""
-    queryset = Category.objects.all()
     serializer_class = CategorySerializer
+    
+    def get_queryset(self):
+        """Filter categories by user's store"""
+        if self.request.user.is_superuser:
+            return Category.objects.all()
+        return Category.objects.filter(store=self.request.user.store)
     
     def get_permissions(self):
         if self.request.method == 'POST':
             return [IsManager()]
         return [IsCashier()]
+    
+    def perform_create(self, serializer):
+        """Automatically assign store when creating category"""
+        user = self.request.user
+        store = user.store if user.store else Store.get_default_store()
+        
+        if not store:
+            raise ValidationError('No store available. Please contact administrator')
+        
+        serializer.save(store=store)
 
 
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -2140,11 +2155,11 @@ class MedicineListView(generics.ListAPIView):
     permission_classes = [IsCashier]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['b_name', 'generic_name', 'sku', 'barcode', 'manufacturer']
-    ordering_fields = ['b_name', 'generic_name', 'price', 'cost_price', 'created_at']
+    ordering_fields = ['b_name', 'generic_name', 'selling_price', 'buying_price', 'created_at']
     ordering = ['b_name']
     
     def get_queryset(self):
-        queryset = Medicine.objects.select_related('category').all()
+        queryset = Medicine.objects.select_related('category').prefetch_related('batches')
         
         # Filter by active status
         is_active = self.request.query_params.get('is_active', 'true')
@@ -2160,12 +2175,6 @@ class MedicineListView(generics.ListAPIView):
         schedule = self.request.query_params.get('schedule')
         if schedule:
             queryset = queryset.filter(schedule=schedule)
-        
-        # Filter by low stock
-        low_stock = self.request.query_params.get('low_stock')
-        if low_stock and low_stock.lower() == 'true':
-            # This will need annotation
-            pass
         
         return queryset
 
@@ -2224,7 +2233,7 @@ def deactivate_medicine(request, pk):
     medicine.save()
     
     return Response({
-        'message': f'Medicine "{medicine.name}" deactivated successfully',
+        'message': f'Medicine "{medicine.b_name}" deactivated successfully',
         'medicine': MedicineDetailSerializer(medicine).data
     })
 
@@ -2242,7 +2251,7 @@ def reactivate_medicine(request, pk):
     medicine.save()
     
     return Response({
-        'message': f'Medicine "{medicine.name}" reactivated successfully',
+        'message': f'Medicine "{medicine.b_name}" reactivated successfully',
         'medicine': MedicineDetailSerializer(medicine).data
     })
 
@@ -2256,7 +2265,7 @@ class BatchListView(generics.ListAPIView):
     serializer_class = BatchListSerializer
     permission_classes = [IsCashier]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['batch_number', 'medicine__name', 'medicine__generic_name']
+    search_fields = ['batch_number', 'medicine__b_name', 'medicine__generic_name']
     ordering_fields = ['expiry_date', 'received_date', 'quantity']
     ordering = ['expiry_date']
     
@@ -2268,21 +2277,26 @@ class BatchListView(generics.ListAPIView):
         if medicine_id:
             queryset = queryset.filter(medicine_id=medicine_id)
         
-        # Filter by status
+        # Filter by status - use actual database fields, not properties
         status_filter = self.request.query_params.get('status')
+        today = timezone.now().date()
+        
         if status_filter == 'available':
+            # Available: not expired, not blocked, has quantity
             queryset = queryset.filter(
-                is_expired=False,
+                expiry_date__gt=today,
                 is_blocked=False,
                 quantity__gt=0
             )
         elif status_filter == 'expired':
-            queryset = queryset.filter(expiry_date__lt=timezone.now().date())
+            # Expired: expiry date is in the past
+            queryset = queryset.filter(expiry_date__lt=today)
         elif status_filter == 'near_expiry':
-            near_date = timezone.now().date() + timedelta(days=90)
+            # Near expiry: expires within 90 days but not yet expired
+            near_date = today + timedelta(days=90)
             queryset = queryset.filter(
                 expiry_date__lte=near_date,
-                expiry_date__gt=timezone.now().date()
+                expiry_date__gt=today
             )
         elif status_filter == 'blocked':
             queryset = queryset.filter(is_blocked=True)
@@ -2446,6 +2460,265 @@ def writeoff_expired_batch(request, pk):
         'batch': BatchDetailSerializer(batch).data
     })
 
+class BatchCreateView(generics.CreateAPIView):
+    """Create new batch"""
+    serializer_class = BatchCreateSerializer
+    permission_classes = [IsManager]
+    
+    def perform_create(self, serializer):
+        serializer.save(received_by=self.request.user)
+    
+    def create(self, request, *args, **kwargs):
+        """Override to provide better error messages"""
+        print("Batch Create Request Data:", request.data)  # Debug log
+        
+        serializer = self.get_serializer(data=request.data)
+        
+        if not serializer.is_valid():
+            print("Validation Errors:", serializer.errors)  # Debug log
+            return Response(
+                {
+                    'error': 'Validation failed',
+                    'details': serializer.errors
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        
+        return Response(
+            {
+                'message': 'Batch created successfully',
+                'batch': BatchDetailSerializer(serializer.instance).data
+            },
+            status=status.HTTP_201_CREATED,
+            headers=headers
+        )
+
+@api_view(['GET'])
+@permission_classes([IsManager])
+def medicine_batches_view(request, medicine_id):
+    """Get all batches for a specific medicine"""
+    try:
+        medicine = Medicine.objects.get(pk=medicine_id)
+    except Medicine.DoesNotExist:
+        return Response({'error': 'Medicine not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Get filter parameters
+    status_filter = request.query_params.get('status', 'all')
+    
+    queryset = medicine.batches.select_related('supplier').all()
+    
+    if status_filter == 'available':
+        queryset = queryset.filter(
+            expiry_date__gt=timezone.now().date(),
+            is_blocked=False,
+            quantity__gt=0
+        )
+    elif status_filter == 'expired':
+        queryset = queryset.filter(expiry_date__lt=timezone.now().date())
+    elif status_filter == 'near_expiry':
+        near_date = timezone.now().date() + timedelta(days=90)
+        queryset = queryset.filter(
+            expiry_date__lte=near_date,
+            expiry_date__gt=timezone.now().date()
+        )
+    elif status_filter == 'blocked':
+        queryset = queryset.filter(is_blocked=True)
+    elif status_filter == 'depleted':
+        queryset = queryset.filter(quantity=0)
+    
+    queryset = queryset.order_by('expiry_date')
+    
+    serializer = BatchListSerializer(queryset, many=True)
+    
+    return Response({
+        'medicine': {
+            'id': medicine.id,
+            'name': medicine.b_name,
+            'generic_name': medicine.generic_name,
+            'total_stock': medicine.total_stock,
+        },
+        'batches': serializer.data,
+        'count': queryset.count()
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsManager])
+def adjust_batch_quantity(request, pk):
+    """Manually adjust batch quantity (for corrections, damage, etc.)"""
+    try:
+        batch = Batch.objects.get(pk=pk)
+    except Batch.DoesNotExist:
+        return Response({'error': 'Batch not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    adjustment_type = request.data.get('adjustment_type')  # 'add', 'remove', 'set'
+    quantity = request.data.get('quantity')
+    reason = request.data.get('reason', '')
+    
+    if not adjustment_type or quantity is None:
+        return Response(
+            {'error': 'adjustment_type and quantity are required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        quantity = int(quantity)
+    except ValueError:
+        return Response({'error': 'Invalid quantity'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if not reason.strip():
+        return Response({'error': 'Reason is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    from django.db import transaction
+    
+    with transaction.atomic():
+        previous_quantity = batch.quantity
+        
+        if adjustment_type == 'add':
+            new_quantity = previous_quantity + quantity
+            movement_quantity = quantity
+        elif adjustment_type == 'remove':
+            if quantity > previous_quantity:
+                return Response(
+                    {'error': f'Cannot remove {quantity} units. Only {previous_quantity} available.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            new_quantity = previous_quantity - quantity
+            movement_quantity = -quantity
+        elif adjustment_type == 'set':
+            new_quantity = quantity
+            movement_quantity = quantity - previous_quantity
+        else:
+            return Response(
+                {'error': 'Invalid adjustment_type. Must be: add, remove, or set'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if new_quantity < 0:
+            return Response({'error': 'Quantity cannot be negative'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Update batch
+        batch.quantity = new_quantity
+        batch.save()
+        
+        # Create stock movement
+        movement = MedicineStockMovement.objects.create(
+            medicine=batch.medicine,
+            batch=batch,
+            movement_type='adjustment',
+            quantity=movement_quantity,
+            previous_quantity=previous_quantity,
+            new_quantity=new_quantity,
+            reason=reason,
+            performed_by=request.user
+        )
+        
+        # If controlled drug, create register entry
+        if batch.medicine.is_controlled_drug:
+            ControlledDrugRegister.objects.create(
+                medicine=batch.medicine,
+                batch=batch,
+                transaction_type='adjustment',
+                quantity=movement_quantity,
+                balance=new_quantity,
+                dispensed_by=request.user,
+                notes=reason
+            )
+    
+    return Response({
+        'message': 'Batch quantity adjusted successfully',
+        'batch': BatchDetailSerializer(batch).data,
+        'movement': MedicineStockMovementSerializer(movement).data
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsManager])
+def batch_history_view(request, pk):
+    """Get stock movement history for a specific batch"""
+    try:
+        batch = Batch.objects.get(pk=pk)
+    except Batch.DoesNotExist:
+        return Response({'error': 'Batch not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    movements = MedicineStockMovement.objects.filter(
+        batch=batch
+    ).select_related('performed_by').order_by('-created_at')
+    
+    serializer = MedicineStockMovementSerializer(movements, many=True)
+    
+    return Response({
+        'batch': BatchDetailSerializer(batch).data,
+        'movements': serializer.data,
+        'count': movements.count()
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsManager])
+def batch_stats_view(request):
+    """Get batch statistics"""
+    from django.db.models import Sum, Count, Q
+    
+    today = timezone.now().date()
+    
+    # Total batches
+    total_batches = Batch.objects.count()
+    active_batches = Batch.objects.filter(quantity__gt=0, expiry_date__gt=today, is_blocked=False).count()
+    
+    # Expired batches
+    expired_batches = Batch.objects.filter(expiry_date__lt=today, quantity__gt=0)
+    expired_count = expired_batches.count()
+    expired_value = sum(batch.quantity * batch.purchase_price for batch in expired_batches)
+    
+    # Near expiry (30, 60, 90 days)
+    near_expiry_30 = Batch.objects.filter(
+        expiry_date__lte=today + timedelta(days=30),
+        expiry_date__gt=today,
+        quantity__gt=0
+    ).count()
+    
+    near_expiry_60 = Batch.objects.filter(
+        expiry_date__lte=today + timedelta(days=60),
+        expiry_date__gt=today,
+        quantity__gt=0
+    ).count()
+    
+    near_expiry_90 = Batch.objects.filter(
+        expiry_date__lte=today + timedelta(days=90),
+        expiry_date__gt=today,
+        quantity__gt=0
+    ).count()
+    
+    # Blocked batches
+    blocked_batches = Batch.objects.filter(is_blocked=True, quantity__gt=0).count()
+    
+    # Depleted batches
+    depleted_batches = Batch.objects.filter(quantity=0).count()
+    
+    # Total stock value
+    all_batches = Batch.objects.filter(quantity__gt=0, expiry_date__gt=today, is_blocked=False)
+    total_stock_value = sum(batch.quantity * batch.purchase_price for batch in all_batches)
+    
+    return Response({
+        'total_batches': total_batches,
+        'active_batches': active_batches,
+        'depleted_batches': depleted_batches,
+        'blocked_batches': blocked_batches,
+        'expired': {
+            'count': expired_count,
+            'value': float(expired_value)
+        },
+        'near_expiry': {
+            '30_days': near_expiry_30,
+            '60_days': near_expiry_60,
+            '90_days': near_expiry_90
+        },
+        'total_stock_value': float(total_stock_value)
+    })
 
 # ============================================================================
 # STOCK RECEIVING VIEWS

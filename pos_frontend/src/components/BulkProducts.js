@@ -440,7 +440,7 @@ const BulkProducts = () => {
                               ksh {parseFloat(child.price).toFixed(2)}
                             </div>
                             <div className={`existing-child-stock ${child.available_stock === 0 ? 'out' : child.is_low_stock ? 'low' : 'good'}`}>
-                              {child.available_stock === 0 ? '❌ OUT OF STOCK' : `✅ ${child.available_stock} units`}
+                              {child.available_stock === 0 ? 'OUT OF STOCK' : `${child.available_stock} units`}
                             </div>
                           </div>
                         </div>

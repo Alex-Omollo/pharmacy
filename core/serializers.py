@@ -10,6 +10,8 @@ from .models import (
     MedicineStockMovement, PharmacySale, PharmacySaleItem,
     ControlledDrugRegister, Store
 )
+from django.db import models
+from django.utils import timezone
 
 
 class RoleSerializer(serializers.ModelSerializer):
@@ -904,12 +906,34 @@ class  MedicineListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'b_name', 'generic_name', 'sku', 'barcode',
             'category', 'category_name', 'schedule', 'dosage_form',
-            'strength', 'manufacturer', 'selling_price','buying_price',             'total_stock', 'is_low_stock', 'active_batches_count',
+            'strength', 'manufacturer', 'selling_price', 'buying_price',
+            'total_stock', 'is_low_stock', 'active_batches_count',
             'is_active', 'created_at'
         ]
     
+    def get_total_stock(self, obj):
+        """Calculate total stock from non-expired batches"""
+        from django.utils import timezone
+        today = timezone.now().date()
+        result = obj.batches.filter(
+            expiry_date__gt=today,
+            is_blocked=False
+        ).aggregate(total=models.Sum('quantity'))
+        return result['total'] or 0
+    
+    def get_is_low_stock(self, obj):
+        """Check if stock is below minimum level"""
+        total = self.get_total_stock(obj)
+        return total <= obj.min_stock_level
+    
     def get_active_batches_count(self, obj):
-        return obj.batches.filter(is_expired=False, quantity__gt=0).count()
+        """Count non-expired batches with stock"""
+        from django.utils import timezone
+        today = timezone.now().date()
+        return obj.batches.filter(
+            expiry_date__gt=today,
+            quantity__gt=0
+        ).count()
 
 
 class MedicineDetailSerializer(serializers.ModelSerializer):
@@ -971,7 +995,7 @@ class MedicineCreateUpdateSerializer(serializers.ModelSerializer):
 
 class BatchListSerializer(serializers.ModelSerializer):
     """List view for batches"""
-    medicine_name = serializers.CharField(source='medicine.name', read_only=True)
+    medicine_name = serializers.CharField(source='medicine.b_name', read_only=True)
     status = serializers.CharField(read_only=True)
     days_to_expiry = serializers.IntegerField(read_only=True)
     can_dispense = serializers.BooleanField(read_only=True)
@@ -988,7 +1012,7 @@ class BatchListSerializer(serializers.ModelSerializer):
 
 class BatchDetailSerializer(serializers.ModelSerializer):
     """Detail view for batch"""
-    medicine_name = serializers.CharField(source='medicine.name', read_only=True)
+    medicine_name = serializers.CharField(source='medicine.b_name', read_only=True)
     supplier_name = serializers.CharField(source='supplier.name', read_only=True)
     received_by_name = serializers.CharField(source='received_by.username', read_only=True)
     status = serializers.CharField(read_only=True)
@@ -1023,17 +1047,59 @@ class BatchCreateSerializer(serializers.ModelSerializer):
             'selling_price'
         ]
     
+    def validate_expiry_date(self, value):
+        """Ensure expiry date is in the future"""
+        from django.utils import timezone
+        if value <= timezone.now().date():
+            raise serializers.ValidationError("Expiry date must be in the future.")
+        return value
+    
+    def validate_manufacture_date(self, value):
+        """Manufacture date should not be in the future"""
+        from django.utils import timezone
+        if value and value > timezone.now().date():
+            raise serializers.ValidationError("Manufacture date cannot be in the future.")
+        return value
+    
     def validate(self, attrs):
-        # Ensure expiry date is in the future
-        if attrs['expiry_date'] <= timezone.now().date():
+        """Additional validation"""
+        # Ensure expiry is after manufacture
+        if attrs.get('manufacture_date') and attrs.get('expiry_date'):
+            if attrs['manufacture_date'] >= attrs['expiry_date']:
+                raise serializers.ValidationError({
+                    "expiry_date": "Expiry date must be after manufacture date."
+                })
+        
+        # Ensure quantities are positive
+        if attrs.get('initial_quantity', 0) <= 0:
             raise serializers.ValidationError({
-                "expiry_date": "Expiry date must be in the future."
+                "initial_quantity": "Initial quantity must be greater than 0."
+            })
+        
+        if attrs.get('quantity', 0) <= 0:
+            raise serializers.ValidationError({
+                "quantity": "Quantity must be greater than 0."
+            })
+        
+        # Ensure prices are positive
+        if attrs.get('purchase_price', 0) <= 0:
+            raise serializers.ValidationError({
+                "purchase_price": "Purchase price must be greater than 0."
+            })
+        
+        if attrs.get('selling_price', 0) <= 0:
+            raise serializers.ValidationError({
+                "selling_price": "Selling price must be greater than 0."
             })
         
         # Initial quantity should match quantity for new batches
         if 'initial_quantity' in attrs and 'quantity' in attrs:
             if attrs['initial_quantity'] != attrs['quantity']:
                 attrs['quantity'] = attrs['initial_quantity']
+        elif 'initial_quantity' in attrs and 'quantity' not in attrs:
+            attrs['quantity'] = attrs['initial_quantity']
+        elif 'quantity' in attrs and 'initial_quantity' not in attrs:
+            attrs['initial_quantity'] = attrs['quantity']
         
         return attrs
 
@@ -1052,7 +1118,7 @@ class BatchUpdateSerializer(serializers.ModelSerializer):
 
 class StockReceivingItemSerializer(serializers.ModelSerializer):
     """Stock receiving item serializer"""
-    medicine_name = serializers.CharField(source='medicine.name', read_only=True)
+    medicine_name = serializers.CharField(source='medicine.b_name', read_only=True)
     
     class Meta:
         model = StockReceivingItem
@@ -1300,7 +1366,7 @@ class PharmacySaleCreateSerializer(serializers.Serializer):
             if medicine.requires_prescription and not item_data.get('prescription_verified'):
                 if not attrs.get('has_prescription'):
                     raise serializers.ValidationError(
-                        f"{medicine.name} requires a prescription but none was provided."
+                        f"{medicine.b_name} requires a prescription but none was provided."
                     )
             
             # Get or select batch (FEFO)
@@ -1308,7 +1374,7 @@ class PharmacySaleCreateSerializer(serializers.Serializer):
                 try:
                     batch = Batch.objects.get(id=item_data['batch_id'], medicine=medicine)
                 except Batch.DoesNotExist:
-                    raise serializers.ValidationError(f"Batch not found for {medicine.name}")
+                    raise serializers.ValidationError(f"Batch not found for {medicine.b_name}")
             else:
                 # Auto-select using FEFO (First Expiry, First Out)
                 batch = Batch.objects.filter(
@@ -1320,7 +1386,7 @@ class PharmacySaleCreateSerializer(serializers.Serializer):
                 
                 if not batch:
                     raise serializers.ValidationError(
-                        f"No available batch for {medicine.name}. Required: {item_data['quantity']}"
+                        f"No available batch for {medicine.b_name}. Required: {item_data['quantity']}"
                     )
                 
                 item_data['batch_id'] = batch.id
@@ -1328,7 +1394,7 @@ class PharmacySaleCreateSerializer(serializers.Serializer):
             # Check stock availability
             if batch.quantity < item_data['quantity']:
                 raise serializers.ValidationError(
-                    f"Insufficient stock in batch {batch.batch_number} for {medicine.name}. "
+                    f"Insufficient stock in batch {batch.batch_number} for {medicine.b_name}. "
                     f"Available: {batch.quantity}, Required: {item_data['quantity']}"
                 )
             
@@ -1408,7 +1474,7 @@ class PharmacySaleCreateSerializer(serializers.Serializer):
                     sale=sale,
                     medicine=medicine,
                     batch=batch,
-                    medicine_name=medicine.name,
+                    medicine_name=medicine.b_name,
                     batch_number=batch.batch_number,
                     expiry_date=batch.expiry_date,
                     quantity=quantity,
@@ -1460,7 +1526,7 @@ class PharmacySaleCreateSerializer(serializers.Serializer):
 
 class MedicineStockMovementSerializer(serializers.ModelSerializer):
     """Medicine stock movement"""
-    medicine_name = serializers.CharField(source='medicine.name', read_only=True)
+    medicine_name = serializers.CharField(source='medicine.b_name', read_only=True)
     batch_number = serializers.CharField(source='batch.batch_number', read_only=True)
     performed_by_name = serializers.CharField(source='performed_by.username', read_only=True)
     

@@ -1,7 +1,8 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import MinValueValidator
-from django.utils.timezone import now
+# from django.utils.timezone import now
+from django.utils import timezone
 from decimal import Decimal
 import uuid
 
@@ -485,7 +486,7 @@ class Medicine(models.Model):
     @property
     def total_stock(self):
         """Total stock across all non-expired batches"""
-        today = now().date()
+        today = timezone.now().date()
         return self.batches.filter(
             expiry_date__gt=today,
             is_blocked=False
@@ -526,7 +527,13 @@ class Batch(models.Model):
     
     # Batch Identification
     batch_number = models.CharField(max_length=100)
-    supplier = models.ForeignKey('Supplier', on_delete=models.SET_NULL, null=True, related_name='batches')
+    supplier = models.ForeignKey(
+        'Supplier', 
+        on_delete=models.SET_NULL, 
+        null=True,
+        blank=True, 
+        related_name='batches'
+    )
     
     # Dates
     manufacture_date = models.DateField(null=True, blank=True)
@@ -568,12 +575,19 @@ class Batch(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"{self.medicine.name} - Batch {self.batch_number} (Exp: {self.expiry_date})"
+        return f"{self.medicine.b_name} - Batch {self.batch_number} (Exp: {self.expiry_date})"
     
     @property
     def is_expired(self):
         """Check if batch is expired"""
-        return timezone.now().date() >= self.expiry_date
+        from datetime import datetime
+        # Handle both date objects and strings
+        if isinstance(self.expiry_date, str):
+            expiry = datetime.strptime(self.expiry_date, '%Y-%m-%d').date()
+        else:
+            expiry = self.expiry_date
+            
+        return timezone.now().date() >= expiry
     
     @property
     def days_to_expiry(self):
@@ -581,7 +595,6 @@ class Batch(models.Model):
         delta = self.expiry_date - timezone.now().date()
         return delta.days
     
-    @property
     def is_near_expiry(self, days=90):
         """Check if batch is nearing expiry (default 90 days)"""
         return 0 < self.days_to_expiry <= days
@@ -610,6 +623,11 @@ class Batch(models.Model):
             return 'available'
     
     def save(self, *args, **kwargs):
+        # Ensure expiry_date is a date object
+        if isinstance(self.expiry_date, str):
+            from datetime import datetime
+            self.expiry_date = datetime.strptime(self.expiry_date, '%Y-%m-%d').date()
+            
         # Auto-block expired batches
         if self.is_expired and not self.is_blocked:
             self.is_blocked = True
@@ -720,11 +738,14 @@ class StockReceivingItem(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     def save(self, *args, **kwargs):
-        self.line_cost = self.purchase_price * self.quantity_received
+        from decimal import Decimal
+        purchase_price = Decimal(str(self.purchase_price)) if self.purchase_price else Decimal('0')
+        quantity = Decimal(str(self.quantity_received)) if self.quantity_received else Decimal('0')
+        self.line_cost = purchase_price * quantity
         super().save(*args, **kwargs)
     
     def __str__(self):
-        return f"{self.medicine.name} - {self.quantity_received} units - Batch {self.batch_number}"
+        return f"{self.medicine.b_name} - {self.quantity_received} units - Batch {self.batch_number}"
     
     class Meta:
         db_table = 'stock_receiving_items'
@@ -770,7 +791,7 @@ class MedicineStockMovement(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
-        return f"{self.medicine.name} - {self.movement_type} - {self.quantity}"
+        return f"{self.medicine.b_name} - {self.movement_type} - {self.quantity}"
     
     class Meta:
         db_table = 'medicine_stock_movements'
@@ -942,7 +963,7 @@ class ControlledDrugRegister(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
-        return f"{self.medicine.name} - {self.transaction_type} - {self.quantity} ({self.created_at.date()})"
+        return f"{self.medicine.b_name} - {self.transaction_type} - {self.quantity} ({self.created_at.date()})"
     
     class Meta:
         db_table = 'controlled_drug_register'

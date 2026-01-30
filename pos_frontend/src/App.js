@@ -6,7 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 // import Products from './pages/Products';
 import Categories from './pages/Categories';
-import Sales from './pages/Sales';
+// import Sales from './pages/Sales';
 import SalesHistory from './pages/SalesHistory';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
@@ -18,6 +18,7 @@ import ExpiryManagement from './pages/ExpiryManagement';
 import Batches from './pages/Batches';
 import StoreSetup from './pages/StoreSetup';
 import SetupGuard from './components/SetupGuard';
+import PharmacySales from './pages/PharmacySales';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -53,13 +54,21 @@ function App() {
             </ProtectedRoute>
           } 
         />
-        <Route 
+        {/* <Route 
           path="/sales" 
           element={
             <ProtectedRoute>
               <Sales />
             </ProtectedRoute>
           } 
+        /> */}
+        <Route
+          path="/sales"
+          element={
+            <ProtectedRoute>
+              <PharmacySales />
+            </ProtectedRoute>
+          }
         />
         <Route 
           path="/sales-history" 

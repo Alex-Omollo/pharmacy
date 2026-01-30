@@ -76,15 +76,20 @@ from .views import (
     MedicineDetailView,
     deactivate_medicine,
     reactivate_medicine,
+    medicine_batches_view,
     
     # Batch views
     BatchListView,
+    BatchCreateView,
+    batch_stats_view,
     BatchDetailView,
     block_batch,
     unblock_batch,
     expired_batches_view,
     near_expiry_batches_view,
     writeoff_expired_batch,
+    adjust_batch_quantity,
+    batch_history_view,
     
     # Stock receiving views
     StockReceivingListView,
@@ -147,12 +152,12 @@ urlpatterns = [
     path('products/<int:pk>/', ProductDetailView.as_view(), name='product_detail'),
     
     # Sales
-    path('sales/', SaleListView.as_view(), name='sale_list'),
-    path('sales/create/', SaleCreateView.as_view(), name='sale_create'),
-    path('sales/stats/', sales_stats_view, name='sales_stats'),
-    path('sales/top-products/', top_selling_products_view, name='top_products'),
-    path('sales/<int:pk>/', SaleDetailView.as_view(), name='sale_detail'),
-    path('sales/<int:pk>/cancel/', cancel_sale_view, name='cancel_sale'),
+    # path('sales/', SaleListView.as_view(), name='sale_list'),
+    # path('sales/create/', SaleCreateView.as_view(), name='sale_create'),
+    # path('sales/stats/', sales_stats_view, name='sales_stats'),
+    # path('sales/top-products/', top_selling_products_view, name='top_products'),
+    # path('sales/<int:pk>/', SaleDetailView.as_view(), name='sale_detail'),
+    # path('sales/<int:pk>/cancel/', cancel_sale_view, name='cancel_sale'),
     
     # Inventory - Suppliers
     path('inventory/suppliers/', SupplierListCreateView.as_view(), name='supplier_list_create'),
@@ -207,15 +212,21 @@ urlpatterns = [
     path('medicines/<int:pk>/', MedicineDetailView.as_view(), name='medicine_detail'),
     path('medicines/<int:pk>/deactivate/', deactivate_medicine, name='deactivate_medicine'),
     path('medicines/<int:pk>/reactivate/', reactivate_medicine, name='reactivate_medicine'),
+    path('medicines/<int:medicine_id>/batches/', medicine_batches_view, name='medicine_batches'),
     
     # ===== BATCH MANAGEMENT =====
     path('batches/', BatchListView.as_view(), name='batch_list'),
+    path('batches/create/', BatchCreateView.as_view(), name='batch_create'),
+    path('batches/stats/', batch_stats_view, name='batch_stats'),
+    path('batches/expired/', expired_batches_view, name='expired_batches'),
+    path('batches/near-expiry/', near_expiry_batches_view, name='near_expiry_batches'),
     path('batches/<int:pk>/', BatchDetailView.as_view(), name='batch_detail'),
     path('batches/<int:pk>/block/', block_batch, name='block_batch'),
     path('batches/<int:pk>/unblock/', unblock_batch, name='unblock_batch'),
     path('batches/<int:pk>/writeoff/', writeoff_expired_batch, name='writeoff_batch'),
-    path('batches/expired/', expired_batches_view, name='expired_batches'),
-    path('batches/near-expiry/', near_expiry_batches_view, name='near_expiry_batches'),
+    path('batches/<int:pk>/adjust/', adjust_batch_quantity, name='adjust_batch_quantity'),
+    path('batches/<int:pk>/history/', batch_history_view, name='batch_history'),
+
     
     # ===== STOCK RECEIVING =====
     path('stock-receiving/', StockReceivingListView.as_view(), name='stock_receiving_list'),

@@ -21,7 +21,7 @@ const Dashboard = () => {
   return (
     <div className="dashboard-container">
       <nav className="dashboard-nav">
-        <h1>FeedsHub Dashboard</h1>
+        <h1> Dashboard</h1>
         <div className="user-info">
           <span>Welcome, {user?.username} ({user?.role_display})</span>
           <button onClick={handleLogout} className="logout-btn">
@@ -52,7 +52,7 @@ const Dashboard = () => {
                 <p>Manage product catalog</p>
               </Link> */}
               <Link to="/medicines" className='card'>
-                <h3>Medicines</h3>
+                <h3>💊 Medicines</h3>
                 <p>Manage medicine catalog</p>
               </Link>
 

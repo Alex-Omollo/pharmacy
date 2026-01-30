@@ -70,7 +70,7 @@ const StoreSetup = () => {
     <div className="setup-container">
       <div className="setup-card">
         <div className="setup-header">
-          <h1>🏪 Welcome to FeedsHub POS</h1>
+          <h1>🏪 Welcome</h1>
           <p>Let's set up your store to get started</p>
         </div>
 
@@ -90,7 +90,7 @@ const StoreSetup = () => {
                 name="store_name"
                 value={formData.store.name}
                 onChange={handleChange}
-                placeholder="e.g., FeedsHub Main Branch"
+                placeholder="e.g.,  Main Branch"
                 required
               />
             </div>
@@ -125,7 +125,7 @@ const StoreSetup = () => {
                   name="store_email"
                   value={formData.store.email}
                   onChange={handleChange}
-                  placeholder="store@feedshub.com"
+                  placeholder="store@pos.com"
                 />
               </div>
             </div>

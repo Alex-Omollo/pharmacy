@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import api from '../services/api';
+import PageHeader from '../components/PageHeader';
+// No separate CSS needed - using inline styles
 
 const StockReceiving = () => {
   const [suppliers, setSuppliers] = useState([]);
@@ -28,31 +31,6 @@ const StockReceiving = () => {
   
   const [error, setError] = useState('');
 
-  // Mock API calls - replace with actual API
-  const api = {
-    get: async (url) => {
-      if (url === '/inventory/suppliers/') {
-        return { data: [
-          { id: 1, name: 'PharmaCorp', is_active: true },
-          { id: 2, name: 'MediSupply Ltd', is_active: true }
-        ]};
-      }
-      if (url === '/medicines/') {
-        return { data: [
-          { id: 1, name: 'Panadol', generic_name: 'Paracetamol', strength: '500mg' },
-          { id: 2, name: 'Amoxil', generic_name: 'Amoxicillin', strength: '250mg' }
-        ]};
-      }
-      if (url === '/stock-receiving/') {
-        return { data: [] };
-      }
-    },
-    post: async (url, data) => {
-      console.log('Creating receiving:', data);
-      return { data: { id: 1, ...data } };
-    }
-  };
-
   useEffect(() => {
     fetchData();
   }, []);
@@ -69,6 +47,7 @@ const StockReceiving = () => {
       setMedicines(medicinesRes.data);
       setReceivings(receivingsRes.data);
     } catch (err) {
+      console.error('Error loading data:', err);
       setError('Error loading data');
     }
   };
@@ -136,11 +115,19 @@ const StockReceiving = () => {
       }
 
       const payload = {
-        supplier_id: formData.supplier_id,
+        supplier_id: parseInt(formData.supplier_id),
         supplier_invoice_number: formData.supplier_invoice_number,
         invoice_date: formData.invoice_date || null,
         notes: formData.notes,
-        items: validItems
+        items: validItems.map(item => ({
+          medicine_id: parseInt(item.medicine_id),
+          batch_number: item.batch_number,
+          expiry_date: item.expiry_date,
+          manufacture_date: item.manufacture_date || null,
+          quantity_received: parseInt(item.quantity_received),
+          purchase_price: parseFloat(item.purchase_price),
+          selling_price: parseFloat(item.selling_price)
+        }))
       };
 
       await api.post('/stock-receiving/create/', payload);
@@ -150,7 +137,7 @@ const StockReceiving = () => {
       resetForm();
       fetchData();
     } catch (err) {
-      setError(err.message || 'Error creating stock receiving');
+      setError(err.response?.data?.detail || err.message || 'Error creating stock receiving');
     } finally {
       setLoading(false);
     }
@@ -180,15 +167,11 @@ const StockReceiving = () => {
   return (
     <div style={styles.container}>
       {/* Header */}
-      <div style={styles.header}>
-        <div>
-          <h2 style={styles.title}>📥 Stock Receiving</h2>
-          <p style={styles.subtitle}>Receive stock from suppliers with batch tracking</p>
-        </div>
+      <PageHeader title="📥 Stock Receiving" subtitle="Receive stock from suppliers with batch tracking">
         <button onClick={() => setShowModal(true)} style={styles.btnPrimary}>
           + Receive Stock
         </button>
-      </div>
+      </PageHeader>
 
       {/* Info Banner */}
       <div style={styles.infoBanner}>
@@ -228,7 +211,7 @@ const StockReceiving = () => {
                     {new Date(receiving.received_date).toLocaleDateString()}
                   </td>
                   <td style={styles.td}>{receiving.total_items}</td>
-                  <td style={styles.td}>KSh {receiving.total_cost}</td>
+                  <td style={styles.td}>KSh {parseFloat(receiving.total_cost).toFixed(2)}</td>
                   <td style={styles.td}>
                     <span style={styles.badgeCompleted}>{receiving.status}</span>
                   </td>
@@ -241,7 +224,7 @@ const StockReceiving = () => {
 
       {/* Create Receiving Modal */}
       {showModal && (
-        <div style={styles.modalOverlay} onClick={() => setShowModal(false)}>
+        <div style={styles.modalOverlay} onClick={() => !loading && setShowModal(false)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <h3 style={styles.modalTitle}>Receive Stock from Supplier</h3>
@@ -344,7 +327,7 @@ const StockReceiving = () => {
                           <option value="">Select Medicine</option>
                           {medicines.map(med => (
                             <option key={med.id} value={med.id}>
-                              {med.name} ({med.generic_name}) {med.strength}
+                              {med.b_name} ({med.generic_name}) {med.strength}
                             </option>
                           ))}
                         </select>
@@ -483,301 +466,51 @@ const StockReceiving = () => {
   );
 };
 
+// Styles object (same as before)
 const styles = {
-  container: {
-    padding: '20px',
-    backgroundColor: '#F5F1E8',
-    minHeight: '100vh',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '20px',
-    background: 'white',
-    padding: '20px',
-    borderRadius: '10px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  },
-  title: {
-    margin: 0,
-    color: '#1B5E4C',
-    fontSize: '24px',
-  },
-  subtitle: {
-    margin: '5px 0 0 0',
-    color: '#666',
-    fontSize: '14px',
-  },
-  infoBanner: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '12px',
-    background: '#E7F3FF',
-    border: '1px solid #667eea',
-    borderLeft: '4px solid #667eea',
-    padding: '16px 20px',
-    borderRadius: '8px',
-    marginBottom: '20px',
-    fontSize: '14px',
-    lineHeight: '1.5',
-  },
-  infoIcon: {
-    fontSize: '20px',
-    flexShrink: 0,
-  },
-  btnPrimary: {
-    background: 'linear-gradient(135deg, #1B5E4C 0%, #0D3D30 100%)',
-    color: 'white',
-    border: 'none',
-    padding: '10px 20px',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '600',
-  },
-  tableContainer: {
-    background: 'white',
-    borderRadius: '10px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    overflow: 'hidden',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-  },
-  tableHeaderRow: {
-    background: 'linear-gradient(135deg, #1B5E4C 0%, #0D3D30 100%)',
-    color: 'white',
-  },
-  th: {
-    padding: '15px',
-    textAlign: 'left',
-    fontWeight: '600',
-    fontSize: '14px',
-  },
-  tableRow: {
-    borderBottom: '1px solid #eee',
-  },
-  td: {
-    padding: '15px',
-    fontSize: '14px',
-  },
-  noData: {
-    padding: '60px 20px',
-    textAlign: 'center',
-    color: '#999',
-    fontSize: '16px',
-  },
-  badgeCompleted: {
-    display: 'inline-block',
-    padding: '4px 12px',
-    borderRadius: '12px',
-    fontSize: '12px',
-    fontWeight: '600',
-    background: '#E6F4EA',
-    color: '#1B5E4C',
-    textTransform: 'capitalize',
-  },
-  modalOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-    overflowY: 'auto',
-    padding: '20px',
-  },
-  modal: {
-    background: 'white',
-    padding: '30px',
-    borderRadius: '10px',
-    maxWidth: '900px',
-    width: '95%',
-    maxHeight: '90vh',
-    overflowY: 'auto',
-  },
-  modalHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '20px',
-    paddingBottom: '15px',
-    borderBottom: '2px solid #eee',
-  },
-  modalTitle: {
-    margin: 0,
-    color: '#1B5E4C',
-    fontSize: '20px',
-  },
-  closeBtn: {
-    background: 'none',
-    border: 'none',
-    fontSize: '30px',
-    cursor: 'pointer',
-    color: '#999',
-    lineHeight: 1,
-    padding: 0,
-  },
-  errorMessage: {
-    background: '#FFF3CD',
-    color: '#856404',
-    padding: '12px 15px',
-    borderRadius: '5px',
-    marginBottom: '20px',
-    border: '1px solid #FFC107',
-    fontSize: '14px',
-  },
-  section: {
-    marginBottom: '25px',
-    padding: '20px',
-    background: '#F5F1E8',
-    borderRadius: '8px',
-  },
-  sectionHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '15px',
-  },
-  sectionTitle: {
-    margin: '0 0 15px 0',
-    color: '#1B5E4C',
-    fontSize: '16px',
-  },
-  formRow: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '15px',
-  },
-  formGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  label: {
-    marginBottom: '5px',
-    color: '#0D3D30',
-    fontWeight: '500',
-    fontSize: '14px',
-  },
-  input: {
-    padding: '10px 12px',
-    border: '2px solid #1B5E4C40',
-    borderRadius: '5px',
-    fontSize: '14px',
-  },
-  select: {
-    padding: '10px 12px',
-    border: '2px solid #1B5E4C40',
-    borderRadius: '5px',
-    fontSize: '14px',
-  },
-  textarea: {
-    padding: '10px 12px',
-    border: '2px solid #1B5E4C40',
-    borderRadius: '5px',
-    fontSize: '14px',
-    fontFamily: 'inherit',
-    resize: 'vertical',
-  },
-  btnAddItem: {
-    background: '#1B5E4C',
-    color: 'white',
-    border: 'none',
-    padding: '8px 16px',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '500',
-  },
-  itemsContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '15px',
-  },
-  itemCard: {
-    background: 'white',
-    padding: '15px',
-    borderRadius: '8px',
-    border: '1px solid #E0E0E0',
-  },
-  itemHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '12px',
-  },
-  itemNumber: {
-    fontWeight: '600',
-    color: '#1B5E4C',
-    fontSize: '14px',
-  },
-  btnRemove: {
-    background: '#DC2626',
-    color: 'white',
-    border: 'none',
-    width: '28px',
-    height: '28px',
-    borderRadius: '50%',
-    cursor: 'pointer',
-    fontSize: '20px',
-    lineHeight: 1,
-  },
-  itemFields: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '12px',
-  },
-  lineTotal: {
-    marginTop: '10px',
-    padding: '8px 12px',
-    background: '#E6F4EA',
-    borderRadius: '5px',
-    textAlign: 'right',
-    fontWeight: '600',
-    color: '#1B5E4C',
-  },
-  totalsBox: {
-    background: '#F5F1E8',
-    padding: '20px',
-    borderRadius: '8px',
-    marginTop: '20px',
-  },
-  totalRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '8px 0',
-    fontSize: '15px',
-  },
-  grandTotal: {
-    borderTop: '2px solid #1B5E4C',
-    marginTop: '10px',
-    paddingTop: '15px',
-    fontSize: '18px',
-    color: '#1B5E4C',
-  },
-  modalFooter: {
-    display: 'flex',
-    gap: '10px',
-    justifyContent: 'flex-end',
-    marginTop: '20px',
-    paddingTop: '20px',
-    borderTop: '1px solid #eee',
-  },
-  btnSecondary: {
-    background: '#F5F1E8',
-    color: '#0D3D30',
-    border: '2px solid #1B5E4C',
-    padding: '10px 20px',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    fontSize: '14px',
-  },
+  container: { padding: '20px', backgroundColor: '#F5F1E8', minHeight: '100vh' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', background: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' },
+  title: { margin: 0, color: '#1B5E4C', fontSize: '24px' },
+  subtitle: { margin: '5px 0 0 0', color: '#666', fontSize: '14px' },
+  infoBanner: { display: 'flex', alignItems: 'flex-start', gap: '12px', background: '#E7F3FF', border: '1px solid #667eea', borderLeft: '4px solid #667eea', padding: '16px 20px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px', lineHeight: '1.5' },
+  infoIcon: { fontSize: '20px', flexShrink: 0 },
+  btnPrimary: { background: 'linear-gradient(135deg, #1B5E4C 0%, #0D3D30 100%)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' },
+  tableContainer: { background: 'white', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' },
+  table: { width: '100%', borderCollapse: 'collapse' },
+  tableHeaderRow: { background: 'linear-gradient(135deg, #1B5E4C 0%, #0D3D30 100%)', color: 'white' },
+  th: { padding: '15px', textAlign: 'left', fontWeight: '600', fontSize: '14px' },
+  tableRow: { borderBottom: '1px solid #eee' },
+  td: { padding: '15px', fontSize: '14px' },
+  noData: { padding: '60px 20px', textAlign: 'center', color: '#999', fontSize: '16px' },
+  badgeCompleted: { display: 'inline-block', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '600', background: '#E6F4EA', color: '#1B5E4C', textTransform: 'capitalize' },
+  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, overflowY: 'auto', padding: '20px' },
+  modal: { background: 'white', padding: '30px', borderRadius: '10px', maxWidth: '900px', width: '95%', maxHeight: '90vh', overflowY: 'auto' },
+  modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '15px', borderBottom: '2px solid #eee' },
+  modalTitle: { margin: 0, color: '#1B5E4C', fontSize: '20px' },
+  closeBtn: { background: 'none', border: 'none', fontSize: '30px', cursor: 'pointer', color: '#999', lineHeight: 1, padding: 0 },
+  errorMessage: { background: '#FFF3CD', color: '#856404', padding: '12px 15px', borderRadius: '5px', marginBottom: '20px', border: '1px solid #FFC107', fontSize: '14px' },
+  section: { marginBottom: '25px', padding: '20px', background: '#F5F1E8', borderRadius: '8px' },
+  sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' },
+  sectionTitle: { margin: '0 0 15px 0', color: '#1B5E4C', fontSize: '16px' },
+  formRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' },
+  formGroup: { display: 'flex', flexDirection: 'column' },
+  label: { marginBottom: '5px', color: '#0D3D30', fontWeight: '500', fontSize: '14px' },
+  input: { padding: '10px 12px', border: '2px solid #1B5E4C40', borderRadius: '5px', fontSize: '14px' },
+  select: { padding: '10px 12px', border: '2px solid #1B5E4C40', borderRadius: '5px', fontSize: '14px' },
+  textarea: { padding: '10px 12px', border: '2px solid #1B5E4C40', borderRadius: '5px', fontSize: '14px', fontFamily: 'inherit', resize: 'vertical' },
+  btnAddItem: { background: '#1B5E4C', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '5px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' },
+  itemsContainer: { display: 'flex', flexDirection: 'column', gap: '15px' },
+  itemCard: { background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #E0E0E0' },
+  itemHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' },
+  itemNumber: { fontWeight: '600', color: '#1B5E4C', fontSize: '14px' },
+  btnRemove: { background: '#DC2626', color: 'white', border: 'none', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', fontSize: '20px', lineHeight: 1 },
+  itemFields: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' },
+  lineTotal: { marginTop: '10px', padding: '8px 12px', background: '#E6F4EA', borderRadius: '5px', textAlign: 'right', fontWeight: '600', color: '#1B5E4C' },
+  totalsBox: { background: '#F5F1E8', padding: '20px', borderRadius: '8px', marginTop: '20px' },
+  totalRow: { display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '15px' },
+  grandTotal: { borderTop: '2px solid #1B5E4C', marginTop: '10px', paddingTop: '15px', fontSize: '18px', color: '#1B5E4C' },
+  modalFooter: { display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #eee' },
+  btnSecondary: { background: '#F5F1E8', color: '#0D3D30', border: '2px solid #1B5E4C', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer', fontSize: '14px' },
 };
 
 export default StockReceiving;

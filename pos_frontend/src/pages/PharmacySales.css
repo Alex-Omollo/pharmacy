@@ -1,0 +1,385 @@
+/* ===============================
+   PHARMACY SALES – MAIN LAYOUT
+================================ */
+.pharmacy-sales-container {
+  padding: 16px;
+  background: #f5f7fa;
+  min-height: 100vh;
+}
+
+.sales-content {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+/* ===============================
+   HEADER EXTRAS
+================================ */
+.dispenser-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-back {
+  background: #e5e7eb;
+  padding: 6px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 500;
+  color: #111827;
+}
+
+.btn-back:hover {
+  background: #d1d5db;
+}
+
+/* ===============================
+   SEARCH SECTION
+================================ */
+.search-section {
+  position: relative;
+}
+
+.search-input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+}
+
+.search-results {
+  position: absolute;
+  top: 48px;
+  width: 100%;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+  max-height: 360px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.search-result-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.search-result-item:hover {
+  background: #f8fafc;
+}
+
+.search-result-item.out-of-stock {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.medicine-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.generic-name,
+.strength {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.medicine-price {
+  text-align: right;
+}
+
+.stock.low {
+  color: #d97706;
+}
+
+.stock.out {
+  color: #dc2626;
+}
+
+/* ===============================
+   BADGES
+================================ */
+.badges {
+  margin-top: 4px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 11px;
+  border-radius: 4px;
+  margin-right: 4px;
+}
+
+.badge-prescription {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.badge-controlled {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* ===============================
+   WARNINGS
+================================ */
+.warnings-section {
+  margin: 12px 0;
+}
+
+.warning-item {
+  background: #fff7ed;
+  color: #9a3412;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+/* ===============================
+   CART
+================================ */
+.cart-section {
+  background: #ffffff;
+  padding: 12px;
+  border-radius: 10px;
+  margin-top: 12px;
+}
+
+.empty-cart {
+  text-align: center;
+  color: #6b7280;
+}
+
+.cart-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-remove {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #dc2626;
+  cursor: pointer;
+}
+
+.expiry-warning {
+  background: #fff7ed;
+  padding: 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin: 6px 0;
+}
+
+.item-details {
+  margin-top: 8px;
+}
+
+.item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.item-row.total {
+  border-top: 1px dashed #e5e7eb;
+  padding-top: 6px;
+}
+
+/* ===============================
+   QUANTITY CONTROLS
+================================ */
+.quantity-controls {
+  display: flex;
+  align-items: center;
+}
+
+.quantity-controls button {
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  cursor: pointer;
+}
+
+.quantity-controls input {
+  width: 48px;
+  text-align: center;
+  margin: 0 4px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+}
+
+/* ===============================
+   SUMMARY & CHECKOUT
+================================ */
+.sales-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.summary-section {
+  background: #ffffff;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.summary-row.total {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 8px;
+}
+
+.total-amount {
+  color: #047857;
+}
+
+.negative {
+  color: #dc2626;
+}
+
+/* ===============================
+   BUTTONS
+================================ */
+.actions-section,
+.checkout-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-secondary {
+  flex: 1;
+  padding: 10px;
+  background: #e5e7eb;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-checkout,
+.btn-complete {
+  flex: 1;
+  padding: 10px;
+  background: #16a34a;
+  color: #fff;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-checkout:hover,
+.btn-complete:hover {
+  background: #15803d;
+}
+
+/* ===============================
+   FORMS
+================================ */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+
+.form-group input,
+.form-group select {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+}
+
+.error-message {
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 8px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.change-display {
+  display: flex;
+  justify-content: space-between;
+  background: #ecfdf5;
+  padding: 8px;
+  border-radius: 6px;
+  margin: 8px 0;
+}
+
+.change-amount {
+  font-weight: bold;
+  color: #047857;
+}
+
+/* ===============================
+   MODAL
+================================ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: #fff;
+  width: 500px;
+  max-width: 90%;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.batch-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+}
+
+.batch-item:hover {
+  background: #f8fafc;
+}
+
+.batch-item.near-expiry {
+  background: #fff7ed;
+}
