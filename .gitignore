@@ -10,3 +10,7 @@ db.sqlite3
 /core/tests
 /tests
 /certs
+
+/staticfiles
+/pos_frontend/build
+/pos_backend/settings_production.py

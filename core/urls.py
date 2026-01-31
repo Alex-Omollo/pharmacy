@@ -21,55 +21,15 @@ from .views import (
     # Product views
     CategoryListCreateView,
     CategoryDetailView,
-    ProductListView,
-    ProductCreateView,
-    ProductDetailView,
-    ProductSearchView,
-    LowStockProductsView,
-    BulkProductUploadView,
-    product_stats_view,
-    # Sales views
-    SaleListView,
-    SaleCreateView,
-    SaleDetailView,
-    sales_stats_view,
-    top_selling_products_view,
-    cancel_sale_view,
     # Inventory views
     SupplierListCreateView,
     SupplierDetailView,
-    StockMovementListView,
-    StockAdjustmentView,
-    PurchaseOrderListView,
-    PurchaseOrderCreateView,
-    PurchaseOrderDetailView,
-    receive_purchase_order,
-    cancel_purchase_order,
-    StockAlertListView,
-    inventory_stats_view,
-    # Reports views
-    sales_report_view,
-    product_performance_report_view,
-    cashier_performance_report_view,
-    inventory_report_view,
-    dashboard_stats_view,
-    export_sales_report_csv,
-    # Bulk product views
-    create_bulk_parent_product,
-    create_child_products_from_parent,
-    parent_product_children,
-    update_parent_stock,
-    product_stock_info,
     # Password Reset
     reset_user_password,
     change_own_password,
     # Certificates
     get_qz_certificate, 
     sign_qz_data,
-    # 
-    deactivate_product,
-    reactivate_product,
-    force_delete_product,
     # Medicine views
     MedicineListView,
     MedicineCreateView,
@@ -142,56 +102,9 @@ urlpatterns = [
     path('categories/', CategoryListCreateView.as_view(), name='category_list_create'),
     path('categories/<int:pk>/', CategoryDetailView.as_view(), name='category_detail'),
     
-    # Products
-    path('products/', ProductListView.as_view(), name='product_list'),
-    path('products/create/', ProductCreateView.as_view(), name='product_create'),
-    path('products/search/', ProductSearchView.as_view(), name='product_search'),
-    path('products/low-stock/', LowStockProductsView.as_view(), name='low_stock_products'),
-    path('products/bulk-upload/', BulkProductUploadView.as_view(), name='bulk_upload'),
-    path('products/stats/', product_stats_view, name='product_stats'),
-    path('products/<int:pk>/', ProductDetailView.as_view(), name='product_detail'),
-    
-    # Sales
-    # path('sales/', SaleListView.as_view(), name='sale_list'),
-    # path('sales/create/', SaleCreateView.as_view(), name='sale_create'),
-    # path('sales/stats/', sales_stats_view, name='sales_stats'),
-    # path('sales/top-products/', top_selling_products_view, name='top_products'),
-    # path('sales/<int:pk>/', SaleDetailView.as_view(), name='sale_detail'),
-    # path('sales/<int:pk>/cancel/', cancel_sale_view, name='cancel_sale'),
-    
     # Inventory - Suppliers
     path('inventory/suppliers/', SupplierListCreateView.as_view(), name='supplier_list_create'),
     path('inventory/suppliers/<int:pk>/', SupplierDetailView.as_view(), name='supplier_detail'),
-    
-    # Inventory - Stock Movements
-    path('inventory/stock-movements/', StockMovementListView.as_view(), name='stock_movement_list'),
-    path('inventory/stock-adjustment/', StockAdjustmentView.as_view(), name='stock_adjustment'),
-    
-    # Inventory - Purchase Orders
-    path('inventory/purchase-orders/', PurchaseOrderListView.as_view(), name='purchase_order_list'),
-    path('inventory/purchase-orders/create/', PurchaseOrderCreateView.as_view(), name='purchase_order_create'),
-    path('inventory/purchase-orders/<int:pk>/', PurchaseOrderDetailView.as_view(), name='purchase_order_detail'),
-    path('inventory/purchase-orders/<int:pk>/receive/', receive_purchase_order, name='receive_purchase_order'),
-    path('inventory/purchase-orders/<int:pk>/cancel/', cancel_purchase_order, name='cancel_purchase_order'),
-    
-    # Inventory - Alerts & Stats
-    path('inventory/alerts/', StockAlertListView.as_view(), name='stock_alert_list'),
-    path('inventory/stats/', inventory_stats_view, name='inventory_stats'),
-    
-    # Reports
-    path('reports/sales/', sales_report_view, name='sales_report'),
-    path('reports/products/', product_performance_report_view, name='product_performance'),
-    path('reports/cashiers/', cashier_performance_report_view, name='cashier_performance'),
-    path('reports/inventory/', inventory_report_view, name='inventory_report'),
-    path('reports/dashboard/', dashboard_stats_view, name='dashboard_stats'),
-    path('reports/export/sales/', export_sales_report_csv, name='export_sales_csv'),
-    
-    # Bulk Product Management
-    path('products/bulk/create-parent/', create_bulk_parent_product, name='create_parent_product'),
-    path('products/bulk/create-children/', create_child_products_from_parent, name='create_child_products'),
-    path('products/bulk/parent/<int:parent_id>/children/', parent_product_children, name='parent_children'),
-    path('products/bulk/parent/<int:parent_id>/update-stock/', update_parent_stock, name='update_parent_stock'),
-    path('products/<int:product_id>/stock-info/', product_stock_info, name='product_stock_info'),
     
     # Password Management
     path('users/<int:pk>/reset-password/', reset_user_password, name='reset_user_password'),
@@ -200,11 +113,6 @@ urlpatterns = [
     # Certificate sign
     path('qz/certificate/', get_qz_certificate, name='qz_certificate'),
     path('qz/sign/', sign_qz_data, name='qz_sign'),
-    
-    #
-    path('products/<int:pk>/deactivate/', deactivate_product, name='deactivate_product'),
-    path('products/<int:pk>/reactivate/', reactivate_product, name='reactivate_product'),
-    path('products/<int:pk>/force-delete/', force_delete_product, name='force_delete_product'),
     
     # ===== MEDICINE MANAGEMENT =====
     path('medicines/', MedicineListView.as_view(), name='medicine_list'),

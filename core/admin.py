@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Store, Role, User, Category, Product, Medicine, Batch, Supplier, Sale, SaleItem, PurchaseOrder, PurchaseOrderItem, StockMovement, StockAlert
+from .models import (
+    Store, Role, User, Category, 
+    Medicine, Batch, Supplier,
+)
 
 
 @admin.register(Store)
@@ -65,27 +68,7 @@ class CategoryAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
 
-@admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
-    list_display = ['name', 'sku', 'category', 'store', 'price', 'stock_quantity', 'is_active']
-    list_filter = ['is_active', 'product_type', 'created_at', 'store']
-    search_fields = ['name', 'sku', 'barcode', 'description']
-    readonly_fields = ['created_at', 'updated_at']
-    
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if request.user.is_superuser:
-            return qs
-        return qs.filter(store=request.user.store)
-
-
 # Register other models as needed
 admin.site.register(Medicine)
 admin.site.register(Batch)
 admin.site.register(Supplier)
-admin.site.register(Sale)
-admin.site.register(SaleItem)
-admin.site.register(PurchaseOrder)
-admin.site.register(PurchaseOrderItem)
-admin.site.register(StockMovement)
-admin.site.register(StockAlert)

@@ -1,34 +1,23 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import MinValueValidator
-# from django.utils.timezone import now
 from django.utils import timezone
 from decimal import Decimal
 import uuid
 
 
 class Store(models.Model):
+    """Pharmacy Store/Branch"""
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
-    is_default = models.BooleanField(
-        default=False,
-        help_text='Mark this as the default store',
-    )
-    is_active = models.BooleanField(
-        default=True, 
-        help_text='Whether this store is active',
-    )
+    is_default = models.BooleanField(default=False, help_text='Mark this as the default store')
+    is_active = models.BooleanField(default=True, help_text='Whether this store is active')
     address = models.TextField(blank=True)
     phone = models.CharField(blank=True, max_length=20)
     email = models.EmailField(blank=True)
     business_registration = models.CharField(max_length=100, blank=True, help_text='Business registration number')
     tax_id = models.CharField(max_length=100, blank=True, help_text='Tax ID/VAT number')
-    created_by = models.ForeignKey(
-        'User', 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        related_name='created_stores'
-    )
+    created_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, related_name='created_stores')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -37,7 +26,6 @@ class Store(models.Model):
         ordering = ['-is_default', 'name']
         verbose_name = 'Store'
         verbose_name_plural = 'Stores'
-        
         
     def __str__(self):
         return f"{self.name}{' (default)' if self.is_default else ''}"
@@ -51,21 +39,6 @@ class Store(models.Model):
     def get_default_store(cls):
         """Get the default store"""
         return cls.objects.filter(is_default=True, is_active=True).first()
-        
-        # """Get the default store, create one if none exists"""
-        # default_store = cls.objects.filter(is_default=True).first()
-        # if not default_store:
-            
-        #     admin_user = User.objects.filter(role__name='admin').first()
-            
-        #     default_store = cls.objects.create(
-        #         name='Default Store',
-        #         description='Default store for the system',
-        #         is_default=True,
-        #         is_active=True,
-        #         created_by=User.objects.get(username='admin')
-        #     )
-        # return default_store
     
     @classmethod
     def setup_required(cls):
@@ -83,15 +56,9 @@ class Store(models.Model):
             **kwargs
         )
 
-class StoreFilteredManager(models.Manager):
-    """Manager that filters by store"""
-    
-    def for_store(self, store):
-        return self.filter(store=store)
-    
-    
+
 class Role(models.Model):
-    """User roles for POS system"""
+    """User roles for Pharmacy system"""
     ADMIN = 'admin'
     MANAGER = 'manager'
     CASHIER = 'cashier'
@@ -116,26 +83,12 @@ class Role(models.Model):
 
 class User(AbstractUser):
     """Custom user model with role-based access"""
-    role = models.ForeignKey(
-        Role, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        related_name='users'
-    )
-    store = models.ForeignKey(
-        Store,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='users'
-    )
+    role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, related_name='users')
+    store = models.ForeignKey(Store, on_delete=models.SET_NULL, null=True, blank=True, related_name='users')
     phone = models.CharField(max_length=15, blank=True)
     address = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
-    has_completed_setup = models.BooleanField(
-        default=False,
-        help_text='Whether the user has completed initial setup'
-    )
+    has_completed_setup = models.BooleanField(default=False, help_text='Whether the user has completed initial setup')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -156,17 +109,16 @@ class User(AbstractUser):
     
     class Meta:
         db_table = 'users'
-        
-##
+
+
 class Category(models.Model):
-    """Product categories"""
+    """Medicine categories"""
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='categories')
-    objects = StoreFilteredManager()
     
     def __str__(self):
         return self.name
@@ -178,249 +130,8 @@ class Category(models.Model):
         unique_together = [['name', 'store']]
 
 
-class Product(models.Model):
-    """Product catalog with bulk tracking support"""
-    
-    # Product Types
-    PRODUCT_TYPE_CHOICES = [
-        ('simple', 'Simple Product'),
-        ('parent', 'Bulk/Parent Product'),
-        ('child', 'Child Product'),
-    ]
-    
-    # Base unit choices for standardization
-    UNIT_CHOICES = [
-        ('g', 'Grams'),
-        ('kg', 'Kilograms'),
-        ('ml', 'Milliliters'),
-        ('l', 'Liters'),
-        ('pcs', 'Pieces'),
-        ('box', 'Box'),
-        ('pack', 'Pack'),
-    ]
-    
-    name = models.CharField(max_length=200)
-    sku = models.CharField(max_length=50, unique=True, help_text="Stock Keeping Unit")
-    barcode = models.CharField(max_length=100, unique=True, blank=True, null=True)
-    category = models.ForeignKey(
-        Category, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        related_name='products'
-    )
-    description = models.TextField(blank=True)
-    
-    # Product type and parent-child relationship
-    product_type = models.CharField(
-        max_length=20,
-        choices=PRODUCT_TYPE_CHOICES,
-        default='simple',
-        help_text="Simple=standalone, Parent=bulk item, Child=derived from parent"
-    )
-    parent_product = models.ForeignKey(
-        'self',
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name='child_products',
-        help_text="Parent product for child items"
-    )
-    
-    # Unit tracking for bulk products
-    base_unit = models.CharField(
-        max_length=10,
-        choices=UNIT_CHOICES,
-        default='pcs',
-        help_text="Base unit of measurement"
-    )
-    unit_quantity = models.DecimalField(
-        max_digits=10,
-        decimal_places=3,
-        default=1,
-        validators=[MinValueValidator(Decimal('0.001'))],
-        help_text="Quantity in base units (e.g., 50 for 50kg, 0.5 for 500g)"
-    )
-    conversion_factor = models.DecimalField(
-        max_digits=10,
-        decimal_places=3,
-        default=1,
-        validators=[MinValueValidator(Decimal('0.001'))],
-        help_text="How many of this unit equals 1 parent unit (e.g., 0.01 for 500g if parent is 50kg)"
-    )
-    
-    # Pricing
-    price = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))]
-    )
-    cost_price = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))],
-        help_text="Cost price for profit calculation"
-    )
-    tax_rate = models.DecimalField(
-        max_digits=5, 
-        decimal_places=2, 
-        default=0.00,
-        validators=[MinValueValidator(Decimal('0.00'))],
-        help_text="Tax percentage (e.g., 16 for 16%)"
-    )
-    
-    # Stock tracking
-    stock_quantity = models.DecimalField(
-        max_digits=10,
-        decimal_places=3,
-        default=0,
-        validators=[MinValueValidator(Decimal('0.000'))],
-        help_text="For parent: number of bulk units (can be fractional). For child: calculated from parent"
-    )
-    min_stock_level = models.IntegerField(
-        default=10,
-        help_text="Minimum stock level for alerts"
-    )
-    
-    # Other fields
-    is_active = models.BooleanField(default=True)
-    image = models.URLField(blank=True, null=True, help_text="Product image URL")
-    created_by = models.ForeignKey(
-        'User',
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='created_products'
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    store = models.ForeignKey(Store, on_delete=models.CASCADE)
-    
-    def __str__(self):
-        if self.product_type == 'child' and self.parent_product:
-            return f"{self.name} ({self.unit_quantity}{self.base_unit} from {self.parent_product.name})"
-        return f"{self.name} ({self.sku})"
-    
-    @property
-    def is_low_stock(self):
-        """Check if product is below minimum stock level"""
-        if self.product_type == 'child' and self.parent_product:
-            # For child products, check available stock from parent
-            return self.available_child_stock <= self.min_stock_level
-        return self.stock_quantity <= self.min_stock_level
-    
-    @property
-    def available_child_stock(self):
-        """
-        For child products: calculate how many units are available from parent
-        For parent/simple: return actual stock
-        """
-        if self.product_type == 'child' and self.parent_product:
-            from decimal import Decimal
-            parent_total_units = Decimal(str(self.parent_product.stock_quantity)) * self.parent_product.unit_quantity
-            child_unit_size = Decimal(str(self.unit_quantity))
-            if child_unit_size > 0:
-                return int(parent_total_units / child_unit_size)
-            return 0
-        return self.stock_quantity
-    
-    @property
-    def display_stock(self):
-        """Display stock with units"""
-        if self.product_type == 'parent':
-            total_base_units = self.stock_quantity * self.unit_quantity
-            return f"{self.stock_quantity} x {self.unit_quantity}{self.base_unit} = {total_base_units}{self.base_unit}"
-        elif self.product_type == 'child':
-            return f"{self.available_child_stock} units available"
-        return f"{self.stock_quantity} units"
-    
-    @property
-    def price_with_tax(self):
-        """Calculate price including tax"""
-        tax_amount = self.price * (Decimal(str(self.tax_rate)) / Decimal('100'))
-        return self.price + tax_amount
-    
-    @property
-    def profit_margin(self):
-        """Calculate profit margin percentage"""
-        if self.cost_price > 0:
-            return ((self.price - self.cost_price) / self.cost_price) * Decimal('100')
-        return 0
-    
-    def update_parent_stock(self, quantity_sold):
-        """
-        Reduce the parent's stock when this child product (a smaller portion) is sold.
-        Example:
-            Parent: 50 kg bag (stock_quantity = 10.0 bags)
-            Child: 10 kg portion
-            Sell 1 child (10kg) => parent stock goes from 10.0 → 9.8 bags
-        """
-        if self.product_type != 'child' or not self.parent_product:
-            return Decimal('0')
-
-        from decimal import Decimal
-
-        parent = self.parent_product
-
-        # Convert both quantities to the same base unit
-        parent_unit_qty = Decimal(str(parent.unit_quantity))   # e.g., 50 kg
-        child_unit_qty = Decimal(str(self.unit_quantity))       # e.g., 10 kg
-
-        # How much of the parent is consumed
-        total_child_qty_sold = Decimal(str(quantity_sold)) * child_unit_qty
-        parent_units_consumed = total_child_qty_sold / parent_unit_qty
-
-        previous_stock = Decimal(str(parent.stock_quantity))
-        new_stock = previous_stock - parent_units_consumed
-
-        if new_stock < 0:
-            new_stock = Decimal('0')
-
-        parent.stock_quantity = new_stock
-        parent.save(update_fields=['stock_quantity'])
-
-        return parent_units_consumed
-
-        return 0
-    
-    def can_sell(self, quantity):
-        """
-        Check if we can sell the requested quantity
-        For child products, checks parent stock availability
-        """
-        if self.product_type == 'child' and self.parent_product:
-            return self.available_child_stock >= quantity
-        return self.stock_quantity >= quantity
-    
-    def save(self, *args, **kwargs):
-        # Validation: child products must have parent
-        if self.product_type == 'child' and not self.parent_product:
-            raise ValueError("Child products must have a parent product")
-        
-        # Validation: parent products cannot have parents
-        if self.product_type == 'parent' and self.parent_product:
-            raise ValueError("Parent products cannot have a parent")
-        
-        # Simple products shouldn't have parent
-        if self.product_type == 'simple' and self.parent_product:
-            self.parent_product = None
-        
-        super().save(*args, **kwargs)
-    
-    class Meta:
-        db_table = 'products'
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['sku']),
-            models.Index(fields=['barcode']),
-            models.Index(fields=['name']),
-            models.Index(fields=['product_type']),
-            models.Index(fields=['parent_product']),
-        ]
-    
 class Medicine(models.Model):
-    """
-    Medicine catalog - can have multiple batches
-    Replaces/extends Product for pharmacy use
-    """
+    """Medicine catalog - can have multiple batches"""
     MEDICINE_TYPE_CHOICES = [
         ('generic', 'Generic'),
         ('brand', 'Brand Name'),
@@ -451,17 +162,9 @@ class Medicine(models.Model):
     manufacturer = models.CharField(max_length=200, blank=True)
     description = models.TextField(blank=True)
     
-    # Pricing (default - can be overridden per batch)
-    buying_price = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))]
-    )
-    selling_price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))]
-    )
+    # Pricing
+    buying_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
     
     # Storage & Safety
     storage_instructions = models.TextField(blank=True)
@@ -517,23 +220,15 @@ class Medicine(models.Model):
             models.Index(fields=['barcode']),
             models.Index(fields=['schedule']),
         ]
-        
+
+
 class Batch(models.Model):
-    """
-    Batch/Lot tracking for medicines
-    Critical for FEFO and expiry management
-    """
+    """Batch/Lot tracking for medicines - Critical for FEFO and expiry management"""
     medicine = models.ForeignKey(Medicine, on_delete=models.PROTECT, related_name='batches')
     
     # Batch Identification
     batch_number = models.CharField(max_length=100)
-    supplier = models.ForeignKey(
-        'Supplier', 
-        on_delete=models.SET_NULL, 
-        null=True,
-        blank=True, 
-        related_name='batches'
-    )
+    supplier = models.ForeignKey('Supplier', on_delete=models.SET_NULL, null=True, blank=True, related_name='batches')
     
     # Dates
     manufacture_date = models.DateField(null=True, blank=True)
@@ -541,29 +236,12 @@ class Batch(models.Model):
     received_date = models.DateField(auto_now_add=True)
     
     # Quantity & Pricing
-    quantity = models.IntegerField(
-        default=0,
-        validators=[MinValueValidator(0)],
-        help_text="Current quantity in this batch"
-    )
-    initial_quantity = models.IntegerField(
-        validators=[MinValueValidator(1)],
-        help_text="Original quantity received"
-    )
+    quantity = models.IntegerField(default=0, validators=[MinValueValidator(0)], help_text="Current quantity in this batch")
+    initial_quantity = models.IntegerField(validators=[MinValueValidator(1)], help_text="Original quantity received")
     
     # Cost tracking
-    purchase_price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))],
-        help_text="Cost per unit"
-    )
-    selling_price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))],
-        help_text="Selling price per unit"
-    )
+    purchase_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.00'))], help_text="Cost per unit")
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))], help_text="Selling price per unit")
     
     # Status flags
     is_blocked = models.BooleanField(default=False, help_text="Manually blocked from sale")
@@ -581,12 +259,10 @@ class Batch(models.Model):
     def is_expired(self):
         """Check if batch is expired"""
         from datetime import datetime
-        # Handle both date objects and strings
         if isinstance(self.expiry_date, str):
             expiry = datetime.strptime(self.expiry_date, '%Y-%m-%d').date()
         else:
             expiry = self.expiry_date
-            
         return timezone.now().date() >= expiry
     
     @property
@@ -602,11 +278,7 @@ class Batch(models.Model):
     @property
     def can_dispense(self):
         """Check if batch can be dispensed"""
-        return (
-            not self.is_expired and 
-            not self.is_blocked and 
-            self.quantity > 0
-        )
+        return not self.is_expired and not self.is_blocked and self.quantity > 0
     
     @property
     def status(self):
@@ -623,11 +295,10 @@ class Batch(models.Model):
             return 'available'
     
     def save(self, *args, **kwargs):
-        # Ensure expiry_date is a date object
         if isinstance(self.expiry_date, str):
             from datetime import datetime
             self.expiry_date = datetime.strptime(self.expiry_date, '%Y-%m-%d').date()
-            
+        
         # Auto-block expired batches
         if self.is_expired and not self.is_blocked:
             self.is_blocked = True
@@ -636,20 +307,37 @@ class Batch(models.Model):
     
     class Meta:
         db_table = 'batches'
-        ordering = ['expiry_date', 'batch_number']  # FEFO ordering
+        ordering = ['expiry_date', 'batch_number']
         unique_together = [['medicine', 'batch_number']]
         indexes = [
             models.Index(fields=['expiry_date']),
             models.Index(fields=['batch_number']),
             models.Index(fields=['medicine', 'expiry_date']),
         ]
-        
+
+
+class Supplier(models.Model):
+    """Suppliers for medicine purchasing"""
+    name = models.CharField(max_length=200)
+    contact_person = models.CharField(max_length=200, blank=True)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=20, blank=True)
+    address = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE)
+    
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        db_table = 'suppliers'
+        ordering = ['name']
+
+
 class StockReceiving(models.Model):
-    """
-    Record of stock received from supplier
-    Links to batch creation
-    """
-    # Reference
+    """Record of stock received from supplier"""
     receiving_number = models.CharField(max_length=50, unique=True, editable=False)
     supplier = models.ForeignKey('Supplier', on_delete=models.PROTECT, related_name='stock_receivings')
     
@@ -659,12 +347,7 @@ class StockReceiving(models.Model):
     
     # Totals
     total_items = models.IntegerField(default=0)
-    total_cost = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        default=0,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
+    total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(Decimal('0.00'))])
     
     # Status
     status = models.CharField(
@@ -686,8 +369,6 @@ class StockReceiving(models.Model):
     
     def save(self, *args, **kwargs):
         if not self.receiving_number:
-            from django.utils import timezone
-            import uuid
             date_str = timezone.now().strftime('%Y%m%d')
             random_str = str(uuid.uuid4())[:6].upper()
             self.receiving_number = f'RCV-{date_str}-{random_str}'
@@ -702,10 +383,7 @@ class StockReceiving(models.Model):
 
 
 class StockReceivingItem(models.Model):
-    """
-    Individual items in a stock receiving
-    Creates/updates batches
-    """
+    """Individual items in a stock receiving"""
     receiving = models.ForeignKey(StockReceiving, on_delete=models.CASCADE, related_name='items')
     medicine = models.ForeignKey(Medicine, on_delete=models.PROTECT, related_name='receiving_items')
     batch = models.ForeignKey(Batch, on_delete=models.SET_NULL, null=True, related_name='receiving_items')
@@ -717,28 +395,15 @@ class StockReceivingItem(models.Model):
     
     # Quantity & Pricing
     quantity_received = models.IntegerField(validators=[MinValueValidator(1)])
-    purchase_price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    selling_price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))]
-    )
+    purchase_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.00'))])
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
     
     # Calculated
-    line_cost = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
+    line_cost = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal('0.00'))])
     
     created_at = models.DateTimeField(auto_now_add=True)
     
     def save(self, *args, **kwargs):
-        from decimal import Decimal
         purchase_price = Decimal(str(self.purchase_price)) if self.purchase_price else Decimal('0')
         quantity = Decimal(str(self.quantity_received)) if self.quantity_received else Decimal('0')
         self.line_cost = purchase_price * quantity
@@ -752,10 +417,7 @@ class StockReceivingItem(models.Model):
 
 
 class MedicineStockMovement(models.Model):
-    """
-    Audit trail for all medicine stock movements
-    Replaces/extends StockMovement for pharmacy
-    """
+    """Audit trail for all medicine stock movements"""
     MOVEMENT_TYPE_CHOICES = [
         ('receiving', 'Stock Receiving'),
         ('sale', 'Sale/Dispensing'),
@@ -766,7 +428,6 @@ class MedicineStockMovement(models.Model):
         ('transfer', 'Transfer'),
     ]
     
-    # What moved
     medicine = models.ForeignKey(Medicine, on_delete=models.PROTECT, related_name='medicine_movements')
     batch = models.ForeignKey(Batch, on_delete=models.PROTECT, related_name='movements')
     
@@ -804,10 +465,7 @@ class MedicineStockMovement(models.Model):
 
 
 class PharmacySale(models.Model):
-    """
-    Pharmacy-specific sale model
-    Extended from Sale with prescription tracking
-    """
+    """Pharmacy-specific sale model with prescription tracking"""
     PAYMENT_METHOD_CHOICES = [
         ('cash', 'Cash'),
         ('card', 'Card'),
@@ -861,8 +519,6 @@ class PharmacySale(models.Model):
     
     def save(self, *args, **kwargs):
         if not self.invoice_number:
-            from django.utils import timezone
-            import uuid
             date_str = timezone.now().strftime('%Y%m%d')
             random_str = str(uuid.uuid4())[:8].upper()
             self.invoice_number = f'INV-{date_str}-{random_str}'
@@ -883,10 +539,7 @@ class PharmacySale(models.Model):
 
 
 class PharmacySaleItem(models.Model):
-    """
-    Individual items in a pharmacy sale
-    Tracks batch dispensed from
-    """
+    """Individual items in a pharmacy sale"""
     sale = models.ForeignKey(PharmacySale, on_delete=models.CASCADE, related_name='items')
     medicine = models.ForeignKey(Medicine, on_delete=models.PROTECT, related_name='sale_items')
     batch = models.ForeignKey(Batch, on_delete=models.PROTECT, related_name='sale_items')
@@ -911,7 +564,6 @@ class PharmacySaleItem(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     def save(self, *args, **kwargs):
-        # Calculate subtotal
         base_amount = self.unit_price * self.quantity
         discount = base_amount * (self.discount_percent / 100)
         self.subtotal = base_amount - discount
@@ -925,10 +577,7 @@ class PharmacySaleItem(models.Model):
 
 
 class ControlledDrugRegister(models.Model):
-    """
-    Special register for controlled drugs
-    Legal requirement for tracking
-    """
+    """Special register for controlled drugs - Legal requirement for tracking"""
     medicine = models.ForeignKey(Medicine, on_delete=models.PROTECT, related_name='controlled_drug_entries')
     batch = models.ForeignKey(Batch, on_delete=models.PROTECT, related_name='controlled_drug_entries')
     
@@ -971,387 +620,3 @@ class ControlledDrugRegister(models.Model):
         indexes = [
             models.Index(fields=['medicine', '-created_at']),
         ]
-##
-class Sale(models.Model):
-    """Sales transaction"""
-    PAYMENT_METHOD_CHOICES = [
-        ('cash', 'Cash'),
-        ('card', 'Card'),
-        ('mobile', 'M-Pesa'),
-    ]
-    
-    STATUS_CHOICES = [
-        ('completed', 'Completed'),
-        ('pending', 'Pending'),
-        ('cancelled', 'Cancelled'),
-    ]
-    
-    invoice_number = models.CharField(max_length=50, unique=True, editable=False)
-    cashier = models.ForeignKey(
-        'User',
-        on_delete=models.PROTECT,
-        related_name='sales'
-    )
-    customer_name = models.CharField(max_length=200, blank=True)
-    subtotal = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    tax_amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=0,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    discount_amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=0,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    total = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    payment_method = models.CharField(
-        max_length=20,
-        choices=PAYMENT_METHOD_CHOICES,
-        default='cash'
-    )
-    amount_paid = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    change_amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=0,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='completed'
-    )
-    notes = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    store = models.ForeignKey(Store, on_delete=models.CASCADE)
-    
-    def save(self, *args, **kwargs):
-        if not self.invoice_number:
-            # Generate unique invoice number
-            from django.utils import timezone
-            date_str = timezone.now().strftime('%Y%m%d')
-            random_str = str(uuid.uuid4())[:8].upper()
-            self.invoice_number = f'INV-{date_str}-{random_str}'
-        super().save(*args, **kwargs)
-    
-    def __str__(self):
-        return f"{self.invoice_number} - ${self.total}"
-    
-    class Meta:
-        db_table = 'sales'
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['invoice_number']),
-            models.Index(fields=['cashier', '-created_at']),
-            models.Index(fields=['-created_at']),
-        ]
-
-
-class SaleItem(models.Model):
-    """Individual items in a sale"""
-    sale = models.ForeignKey(
-        Sale,
-        on_delete=models.CASCADE,
-        related_name='items'
-    )
-    product = models.ForeignKey(
-        'Product',
-        on_delete=models.PROTECT,
-        related_name='sale_items'
-    )
-    product_name = models.CharField(max_length=200)  # Store name at time of sale
-    product_sku = models.CharField(max_length=50)
-    quantity = models.IntegerField(validators=[MinValueValidator(1)])
-    unit_price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))]
-    )
-    tax_rate = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        default=0,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    discount_percent = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        default=0,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    subtotal = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    store = models.ForeignKey(Store, on_delete=models.CASCADE)
-    
-    def __str__(self):
-        return f"{self.product_name} x {self.quantity}"
-    
-    def save(self, *args, **kwargs):
-        # Calculate subtotal
-        base_amount = self.unit_price * self.quantity
-        discount = base_amount * (self.discount_percent / 100)
-        tax = (base_amount - discount) * (self.tax_rate / 100)
-        self.subtotal = base_amount - discount + tax
-        super().save(*args, **kwargs)
-    
-    class Meta:
-        db_table = 'sale_items'
-
-
-class Payment(models.Model):
-    """Payment details for a sale"""
-    PAYMENT_METHOD_CHOICES = [
-        ('cash', 'Cash'),
-        ('card', 'Card'),
-        ('mobile', 'M-Pesa'),
-    ]
-    
-    sale = models.ForeignKey(
-        Sale,
-        on_delete=models.CASCADE,
-        related_name='payments'
-    )
-    payment_method = models.CharField(
-        max_length=20,
-        choices=PAYMENT_METHOD_CHOICES
-    )
-    amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))]
-    )
-    reference_number = models.CharField(max_length=100, blank=True)
-    notes = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    def __str__(self):
-        return f"{self.get_payment_method_display()} - ${self.amount}"
-    
-    class Meta:
-        db_table = 'payments'
-        
-##
-class Supplier(models.Model):
-    """Suppliers for purchasing products"""
-    name = models.CharField(max_length=200)
-    contact_person = models.CharField(max_length=200, blank=True)
-    email = models.EmailField(blank=True)
-    phone = models.CharField(max_length=20, blank=True)
-    address = models.TextField(blank=True)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    store = models.ForeignKey(Store, on_delete=models.CASCADE)
-    
-    def __str__(self):
-        return self.name
-    
-    class Meta:
-        db_table = 'suppliers'
-        ordering = ['name']
-
-
-class StockMovement(models.Model):
-    """Track all stock movements (purchases, sales, adjustments)"""
-    MOVEMENT_TYPE_CHOICES = [
-        ('purchase', 'Purchase'),
-        ('sale', 'Sale'),
-        ('adjustment', 'Adjustment'),
-        ('return', 'Return'),
-        ('damage', 'Damage/Loss'),
-    ]
-    
-    product = models.ForeignKey(
-        'Product',
-        on_delete=models.PROTECT,
-        related_name='stock_movements'
-    )
-    movement_type = models.CharField(max_length=20, choices=MOVEMENT_TYPE_CHOICES)
-    quantity = models.IntegerField(help_text="Positive for stock in, negative for stock out")
-    previous_quantity = models.IntegerField()
-    new_quantity = models.IntegerField()
-    unit_cost = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    reference_number = models.CharField(max_length=100, blank=True, help_text="PO number, invoice, etc")
-    supplier = models.ForeignKey(
-        Supplier,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='stock_movements'
-    )
-    sale = models.ForeignKey(
-        'Sale',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='stock_movements'
-    )
-    user = models.ForeignKey(
-        'User',
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='stock_movements'
-    )
-    notes = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    def __str__(self):
-        return f"{self.product.name} - {self.movement_type} - {self.quantity}"
-    
-    class Meta:
-        db_table = 'stock_movements'
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['product', '-created_at']),
-            models.Index(fields=['movement_type', '-created_at']),
-        ]
-
-
-class PurchaseOrder(models.Model):
-    """Purchase orders for restocking"""
-    STATUS_CHOICES = [
-        ('draft', 'Draft'),
-        ('pending', 'Pending'),
-        ('received', 'Received'),
-        ('cancelled', 'Cancelled'),
-    ]
-    
-    po_number = models.CharField(max_length=50, unique=True, editable=False)
-    supplier = models.ForeignKey(
-        Supplier,
-        on_delete=models.PROTECT,
-        related_name='purchase_orders'
-    )
-    order_date = models.DateTimeField(auto_now_add=True)
-    expected_delivery_date = models.DateField(null=True, blank=True)
-    received_date = models.DateTimeField(null=True, blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-    subtotal = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=0,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    tax_amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=0,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    total = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=0,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    notes = models.TextField(blank=True)
-    created_by = models.ForeignKey(
-        'User',
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='purchase_orders'
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    store = models.ForeignKey(Store, on_delete=models.CASCADE)
-    
-    def save(self, *args, **kwargs):
-        if not self.po_number:
-            # Generate unique PO number
-            import uuid
-            from django.utils import timezone
-            date_str = timezone.now().strftime('%Y%m%d')
-            random_str = str(uuid.uuid4())[:6].upper()
-            self.po_number = f'PO-{date_str}-{random_str}'
-        super().save(*args, **kwargs)
-    
-    def __str__(self):
-        return f"{self.po_number} - {self.supplier.name}"
-    
-    class Meta:
-        db_table = 'purchase_orders'
-        ordering = ['-created_at']
-
-
-class PurchaseOrderItem(models.Model):
-    """Items in a purchase order"""
-    purchase_order = models.ForeignKey(
-        PurchaseOrder,
-        on_delete=models.CASCADE,
-        related_name='items'
-    )
-    product = models.ForeignKey(
-        'Product',
-        on_delete=models.PROTECT,
-        related_name='purchase_order_items'
-    )
-    quantity_ordered = models.IntegerField(validators=[MinValueValidator(1)])
-    quantity_received = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    unit_cost = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))]
-    )
-    subtotal = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    def save(self, *args, **kwargs):
-        self.subtotal = self.unit_cost * self.quantity_ordered
-        super().save(*args, **kwargs)
-    
-    def __str__(self):
-        return f"{self.product.name} x {self.quantity_ordered}"
-    
-    class Meta:
-        db_table = 'purchase_order_items'
-
-
-class StockAlert(models.Model):
-    """Low stock alerts"""
-    product = models.ForeignKey(
-        'Product',
-        on_delete=models.CASCADE,
-        related_name='stock_alerts'
-    )
-    alert_level = models.IntegerField()
-    current_stock = models.IntegerField()
-    is_resolved = models.BooleanField(default=False)
-    resolved_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    def __str__(self):
-        return f"{self.product.name} - Low Stock Alert"
-    
-    class Meta:
-        db_table = 'stock_alerts'
-        ordering = ['-created_at']

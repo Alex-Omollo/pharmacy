@@ -76,10 +76,10 @@ const Dashboard = () => {
                 <p>Manage categories</p>
               </Link>
               
-              <Link to="/inventory" className="card">
+              {/* <Link to="/inventory" className="card">
                 <h3>📊 Inventory</h3>
                 <p>Track stock levels</p>
-              </Link>
+              </Link> */}
               
               <Link to="/reports" className="card">
                 <h3>📈 Reports</h3>

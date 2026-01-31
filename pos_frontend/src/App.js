@@ -8,7 +8,7 @@ import Users from './pages/Users';
 import Categories from './pages/Categories';
 // import Sales from './pages/Sales';
 import SalesHistory from './pages/SalesHistory';
-import Inventory from './pages/Inventory';
+// import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 // import UserDebug from './pages/UserDebug';
 import RoleBasedRoute from './components/RoleBasedRoute';
@@ -134,14 +134,14 @@ function App() {
             </RoleBasedRoute>
           } 
         />
-        <Route 
+        {/* <Route 
           path="/inventory" 
           element={
             <RoleBasedRoute allowedRoles={['admin', 'manager']}>
               <Inventory />
             </RoleBasedRoute>
           } 
-        />
+        /> */}
         <Route 
           path="/reports" 
           element={
